@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int        @id @default(autoincrement())
+  email      String     @unique
+  name       String?
+  avatar     String?
+  created_at DateTime   @default(now())
+  updated_at DateTime   @updatedAt
+  bookings   Booking[]
+  favorites  Favorite[]
+  reviews    Review[]
+
+  @@map("users")
+}
+
+model Provider {
+  id            Int       @id @default(autoincrement())
+  name          String
+  photo_url     String?
+  average_rating Float?
+  rating_count  Int?
+  verified      Boolean   @default(false)
+  bio           String?
+  location      String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  bookings      Booking[]
+  services      Service[]
+
+  @@map("providers")
+}
+
+model Service {
+  id                Int           @id @default(autoincrement())
+  name              String
+  category          HelpoCategory
+  description       String
+  price_from        Int?
+  duration_minutes  Int?
+  tags              String[]
+  images            String[]
+  what_included     String[]
+  requirements      String[]
+  pricing_details   Json?
+  top_rated         Boolean       @default(false)
+  verified          Boolean       @default(false)
+  next_availability DateTime?
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+  provider_id       Int?
+  bookings          Booking[]
+  favorites         Favorite[]
+  reviews           Review[]
+  provider          Provider?     @relation(fields: [provider_id], references: [id])
+
+  @@map("services")
+}
+
+model Booking {
+  id                Int           @id @default(autoincrement())
+  scheduled_at      DateTime
+  location          String?
+  status            BookingStatus @default(pending)
+  total_price       Int
+  notes             String?
+  number_of_people  Int?
+  payment_method_id String?
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+  user_id           Int
+  service_id        Int
+  provider_id       Int
+  provider          Provider      @relation(fields: [provider_id], references: [id])
+  service           Service       @relation(fields: [service_id], references: [id])
+  user              User          @relation(fields: [user_id], references: [id])
+
+  @@map("bookings")
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  name       String
+  avatar_url String?
+  rating     Int
+  comment    String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user_id    Int?
+  service_id Int
+  service    Service  @relation(fields: [service_id], references: [id])
+  user       User?    @relation(fields: [user_id], references: [id])
+
+  @@map("reviews")
+}
+
+model Favorite {
+  id         Int      @id @default(autoincrement())
+  created_at DateTime @default(now())
+  user_id    Int
+  service_id Int
+  service    Service  @relation(fields: [service_id], references: [id])
+  user       User     @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, service_id])
+  @@map("favorites")
+}
+
+model SearchLog {
+  id            Int      @id @default(autoincrement())
+  query         String?
+  category      String?
+  location      String?
+  results_count Int
+  user_clicked  Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  @@map("search_logs")
+}
+
+enum HelpoCategory {
+  Cleaning
+  Repair
+  Pets
+  Lessons
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  completed
+  canceled
+}
