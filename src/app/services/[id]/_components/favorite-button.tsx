@@ -9,27 +9,33 @@ type FavoriteButtonProps = {
 
 export default function FavoriteButton({ serviceId }: FavoriteButtonProps) {
   const [isFavorited, setIsFavorited] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Load favorite status from API on mount
   useEffect(() => {
     checkFavoriteStatus();
   }, [serviceId]);
 
-  // Check if service is in user's favorites
   const checkFavoriteStatus = async () => {
     try {
-      const base = getClientBaseUrl();
-      const response = await fetch(`${base}/api/dev/favorites`);
-      if (response.ok) {
-        const favorites = await response.json();
-        const isFav = favorites.some((fav: any) => fav.service_id === serviceId);
-        setIsFavorited(isFav);
+      const response = await fetch(`/api/dev/favorites?user_id=42`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch favorites: ${response.status}`);
       }
+      
+      const data = await response.json();
+      const favorites = data.favorites || []; // Extract the favorites array from the response
+      const serviceIdNum = parseInt(serviceId);
+      const isFav = favorites.some((fav: any) => fav.service_id === serviceIdNum);
+      
+      setIsFavorited(isFav);
     } catch (error) {
-      console.error('Failed to check favorite status:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error checking favorite status:', error);
     }
   };
 
@@ -42,7 +48,7 @@ export default function FavoriteButton({ serviceId }: FavoriteButtonProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ service_id: serviceId }),
+        body: JSON.stringify({ user_id: 42, service_id: parseInt(serviceId) }),
       });
 
       if (response.ok) {
@@ -52,10 +58,12 @@ export default function FavoriteButton({ serviceId }: FavoriteButtonProps) {
         // Already favorited
         setIsFavorited(true);
         return true;
+      } else {
+        console.error('Error adding to favorites:', response.status);
+        return false;
       }
-      return false;
     } catch (error) {
-      console.error('Failed to add to favorites:', error);
+      console.error('Error adding to favorites:', error);
       return false;
     }
   };
@@ -64,80 +72,73 @@ export default function FavoriteButton({ serviceId }: FavoriteButtonProps) {
   const removeFromFavorites = async () => {
     try {
       const base = getClientBaseUrl();
-      const response = await fetch(`${base}/api/dev/favorites`, {
+      const response = await fetch(`${base}/api/dev/favorites?user_id=42&service_id=${parseInt(serviceId)}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ service_id: serviceId }),
       });
 
       if (response.ok) {
         setIsFavorited(false);
         return true;
+      } else {
+        console.error('Error removing from favorites:', response.status);
+        return false;
       }
-      return false;
     } catch (error) {
-      console.error('Failed to remove from favorites:', error);
+      console.error('Error removing from favorites:', error);
       return false;
     }
   };
 
   // Toggle favorite status
-  const toggleFavorite = async () => {
+  const handleToggle = async () => {
     if (isLoading) return;
     
     setIsLoading(true);
     
-    try {
-      let success = false;
-      
-      if (isFavorited) {
-        success = await removeFromFavorites();
-      } else {
-        success = await addToFavorites();
-      }
-
-      if (!success) {
-        // Optionally show error message
-        console.error('Failed to toggle favorite');
-      }
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
-    } finally {
-      setIsLoading(false);
+    let success = false;
+    if (isFavorited) {
+      success = await removeFromFavorites();
+    } else {
+      success = await addToFavorites();
     }
+    
+    if (!success) {
+      // Revert on failure
+      setIsFavorited(!isFavorited);
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleToggle();
   };
 
   return (
-    <button 
-      onClick={toggleFavorite}
+    <button
+      onClick={handleClick}
       disabled={isLoading}
-      className="absolute top-4 right-4 bg-white/80 backdrop-blur-sm hover:bg-white rounded-full p-2 shadow-lg transition-all z-10 disabled:opacity-50"
-      aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+      className="absolute top-2 right-2 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-lg hover:bg-white/90 transition-all duration-200"
+      title={isFavorited ? "Remove from favorites" : "Add to favorites"}
     >
-      <svg 
-        className={`w-6 h-6 transition-colors ${
-          isFavorited 
-            ? 'text-red-500 fill-current' 
-            : 'text-gray-600 hover:text-red-500'
-        }`} 
-        fill={isFavorited ? 'currentColor' : 'none'} 
-        stroke="currentColor" 
+      <svg
+        width="20"
+        height="20"
         viewBox="0 0 24 24"
+        className={`transition-colors duration-200 ${
+          isFavorited 
+            ? "fill-red-500 text-red-500" 
+            : "fill-none text-gray-600 hover:text-red-500"
+        }`}
       >
-        <path 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-          strokeWidth={2} 
-          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" 
+        <path
+          d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+          stroke="currentColor"
+          strokeWidth="2"
         />
       </svg>
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
-        </div>
-      )}
     </button>
   );
 }

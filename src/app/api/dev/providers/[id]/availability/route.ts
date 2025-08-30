@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 interface TimeSlot {
   id: string;
@@ -9,29 +10,25 @@ interface TimeSlot {
   period: 'morning' | 'noon' | 'afternoon';
 }
 
-// Generate standard business hour time slots
-function generateTimeSlots(): TimeSlot[] {
-  return [
-    // Morning slots (9 AM - 12 PM)
-    { id: "morning-1", label: "9:00 AM", start_time: "09:00", end_time: "10:00", available: true, period: 'morning' },
-    { id: "morning-2", label: "10:00 AM", start_time: "10:00", end_time: "11:00", available: true, period: 'morning' },
-    { id: "morning-3", label: "11:00 AM", start_time: "11:00", end_time: "12:00", available: true, period: 'morning' },
-    
-    // Noon slots (12 PM - 3 PM)
-    { id: "noon-1", label: "12:00 PM", start_time: "12:00", end_time: "13:00", available: true, period: 'noon' },
-    { id: "noon-2", label: "1:00 PM", start_time: "13:00", end_time: "14:00", available: true, period: 'noon' },
-    { id: "noon-3", label: "2:00 PM", start_time: "14:00", end_time: "15:00", available: true, period: 'noon' },
-    
-    // Afternoon slots (3 PM - 6 PM)
-    { id: "afternoon-1", label: "3:00 PM", start_time: "15:00", end_time: "16:00", available: true, period: 'afternoon' },
-    { id: "afternoon-2", label: "4:00 PM", start_time: "16:00", end_time: "17:00", available: true, period: 'afternoon' },
-    { id: "afternoon-3", label: "5:00 PM", start_time: "17:00", end_time: "18:00", available: true, period: 'afternoon' },
-  ];
+// Convert 24-hour time string to 12-hour format for display
+function formatTimeToLabel(time: string): string {
+  const [hours, minutes] = time.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+}
+
+// Determine time period based on hour
+function getTimePeriod(time: string): 'morning' | 'noon' | 'afternoon' {
+  const hour = parseInt(time.split(':')[0]);
+  if (hour < 12) return 'morning';
+  if (hour < 15) return 'noon';
+  return 'afternoon';
 }
 
 export async function GET(
-  request: Request, 
-  { params }: { params: { id: string } }
+  request: NextRequest, 
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
@@ -48,38 +45,69 @@ export async function GET(
       return NextResponse.json({ error: 'Date parameter is required' }, { status: 400 });
     }
 
-    // For now, return time slots with some randomly unavailable slots for demo
-    let timeSlots = generateTimeSlots();
-    
-    // Make some slots unavailable based on the provider ID and date (deterministic)
-    const seed = providerId + date.split('-').join('');
-    const random = parseInt(seed) % 3;
-    
-    if (random === 0) {
-      timeSlots[2].available = false; // 11 AM unavailable
-      timeSlots[5].available = false; // 2 PM unavailable
-    } else if (random === 1) {
-      timeSlots[1].available = false; // 10 AM unavailable  
-      timeSlots[7].available = false; // 4 PM unavailable
-    } else {
-      timeSlots[3].available = false; // 12 PM unavailable
-      timeSlots[8].available = false; // 5 PM unavailable
+    // Verify provider exists
+    const provider = await prisma.provider.findUnique({
+      where: { id: providerId }
+    });
+
+    if (!provider) {
+      return NextResponse.json({ error: 'Provider not found' }, { status: 404 });
     }
 
-    // Generate available dates (next 7 business days)
+    // Parse the requested date
+    const requestedDate = new Date(date);
+    const dayOfWeek = requestedDate.getDay();
+
+    // Get time slots for the specific date from database
+    const timeSlots = await prisma.timeSlot.findMany({
+      where: {
+        provider_id: providerId,
+        date: {
+          gte: new Date(date),
+          lt: new Date(new Date(date).getTime() + 24 * 60 * 60 * 1000) // Next day
+        }
+      },
+      orderBy: { start_time: 'asc' }
+    });
+
+    // Convert database time slots to API format
+    const formattedTimeSlots: TimeSlot[] = timeSlots.map((slot: { 
+      id: number; 
+      start_time: string; 
+      end_time: string; 
+      is_available: boolean; 
+      is_booked: boolean; 
+    }) => ({
+      id: slot.id.toString(),
+      label: formatTimeToLabel(slot.start_time),
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      available: slot.is_available && !slot.is_booked,
+      period: getTimePeriod(slot.start_time)
+    }));
+
+    // Generate available dates based on provider schedule
     const availableDates: string[] = [];
     const today = new Date();
     
-    for (let i = 1; i <= 10; i++) { // Check next 10 days to find 7 available days
-      if (availableDates.length >= 7) break;
-      
+    // Get provider's weekly schedule
+    const weeklySchedule = await prisma.providerSchedule.findMany({
+      where: {
+        provider_id: providerId,
+        is_available: true
+      }
+    });
+
+    const availableDaysOfWeek = new Set(weeklySchedule.map((s: { day_of_week: number }) => s.day_of_week));
+
+    for (let i = 1; i <= 14; i++) { // Check next 14 days
       const checkDate = new Date(today);
       checkDate.setDate(today.getDate() + i);
-      const dateString = checkDate.toISOString().split('T')[0];
       const dayOfWeek = checkDate.getDay();
       
-      // Include business days (Monday-Friday)
-      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      // Only include days the provider works
+      if (availableDaysOfWeek.has(dayOfWeek)) {
+        const dateString = checkDate.toISOString().split('T')[0];
         availableDates.push(dateString);
       }
     }
@@ -88,7 +116,7 @@ export async function GET(
       provider_id: providerId,
       date,
       available_dates: availableDates,
-      time_slots: timeSlots,
+      time_slots: formattedTimeSlots,
     };
 
     return NextResponse.json(availability);

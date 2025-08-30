@@ -8,38 +8,72 @@ datasource db {
 }
 
 model User {
-  id         Int        @id @default(autoincrement())
-  email      String     @unique
-  name       String?
-  avatar     String?
-  created_at DateTime   @default(now())
-  updated_at DateTime   @updatedAt
-  bookings   Booking[]
-  favorites  Favorite[]
-  reviews    Review[]
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
+  password_hash String?   // For email/password login
+  name         String?
+  avatar       String?
+  role         Role       @default(USER)
+  email_verified Boolean  @default(false)
+  phone        String?    @unique
+  phone_verified Boolean  @default(false)
+  created_at   DateTime   @default(now())
+  updated_at   DateTime   @updatedAt
+  
+  // Relations
+  bookings     Booking[]
+  favorites    Favorite[]
+  reviews      Review[]
+  sessions     Session[]  // For session management
+  
+  // Messaging relations
+  conversations           ConversationParticipant[]
+  sent_messages           Message[]
+  message_reactions       MessageReaction[]
 
   @@map("users")
 }
 
+enum Role {
+  USER
+  PROVIDER
+  ADMIN
+}
+
+model Session {
+  id         String   @id @default(uuid())
+  user_id    Int
+  token      String   @unique
+  expires_at DateTime
+  created_at DateTime @default(now())
+  
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
 model Provider {
-  id            Int       @id @default(autoincrement())
-  name          String
-  photo_url     String?
-  average_rating Float?
-  rating_count  Int?
-  verified      Boolean   @default(false)
-  bio           String?
-  location      String?
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-  bookings      Booking[]
-  services      Service[]
+  id               Int                 @id @default(autoincrement())
+  name             String
+  photo_url        String?
+  average_rating   Float?
+  rating_count     Int?
+  verified         Boolean             @default(false)
+  bio              String?
+  location         String?
+  created_at       DateTime            @default(now())
+  updated_at       DateTime            @updatedAt
+  bookings         Booking[]
+  services         Service[]
+  coverage_cities  ProviderCoverage[]
+  schedules        ProviderSchedule[]
+  time_slots       TimeSlot[]
 
   @@map("providers")
 }
 
 model Service {
-  id                Int           @id @default(autoincrement())
+  id                Int               @id @default(autoincrement())
   name              String
   category          HelpoCategory
   description       String
@@ -50,37 +84,45 @@ model Service {
   what_included     String[]
   requirements      String[]
   pricing_details   Json?
-  top_rated         Boolean       @default(false)
-  verified          Boolean       @default(false)
+  top_rated         Boolean           @default(false)
+  verified          Boolean           @default(false)
   next_availability DateTime?
-  created_at        DateTime      @default(now())
-  updated_at        DateTime      @updatedAt
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
   provider_id       Int?
   bookings          Booking[]
   favorites         Favorite[]
   reviews           Review[]
-  provider          Provider?     @relation(fields: [provider_id], references: [id])
+  provider          Provider?         @relation(fields: [provider_id], references: [id])
+  coverage_cities   ServiceCoverage[]
 
   @@map("services")
 }
 
 model Booking {
-  id                Int           @id @default(autoincrement())
-  scheduled_at      DateTime
-  location          String?
-  status            BookingStatus @default(pending)
-  total_price       Int
-  notes             String?
-  number_of_people  Int?
-  payment_method_id String?
-  created_at        DateTime      @default(now())
-  updated_at        DateTime      @updatedAt
-  user_id           Int
-  service_id        Int
-  provider_id       Int
-  provider          Provider      @relation(fields: [provider_id], references: [id])
-  service           Service       @relation(fields: [service_id], references: [id])
-  user              User          @relation(fields: [user_id], references: [id])
+  id                   Int           @id @default(autoincrement())
+  scheduled_at         DateTime
+  location             String?
+  status               BookingStatus @default(pending)
+  total_price          Int
+  notes                String?
+  number_of_people     Int?
+  payment_method_id    String?
+  cancellation_reason  String?
+  cancellation_details String?
+  canceled_at          DateTime?
+  created_at           DateTime      @default(now())
+  updated_at           DateTime      @updatedAt
+  user_id              Int
+  service_id           Int
+  provider_id          Int
+  provider             Provider      @relation(fields: [provider_id], references: [id])
+  service              Service       @relation(fields: [service_id], references: [id])
+  user                 User          @relation(fields: [user_id], references: [id])
+  time_slots           TimeSlot[]
+  
+  // Messaging relations
+  conversations        Conversation[]
 
   @@map("bookings")
 }
@@ -125,6 +167,59 @@ model SearchLog {
   @@map("search_logs")
 }
 
+model City {
+  id                 Int                 @id @default(autoincrement())
+  name               String              @unique
+  region             String              // NCR, Region I, etc.
+  province           String?
+  created_at         DateTime            @default(now())
+  updated_at         DateTime            @updatedAt
+  provider_coverage  ProviderCoverage[]
+  service_coverage   ServiceCoverage[]
+  areas              Area[]              // Areas within this city
+
+  @@map("cities")
+}
+
+// Areas/Districts within cities (BGC, Ortigas, Alabang, etc.)
+model Area {
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  city_id      Int
+  aliases      String[] // Alternative names: ["BGC", "Bonifacio Global City", "Fort"]
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  
+  city         City     @relation(fields: [city_id], references: [id], onDelete: Cascade)
+
+  @@map("areas")
+}
+
+model ProviderCoverage {
+  id          Int      @id @default(autoincrement())
+  provider_id Int
+  city_id     Int
+  created_at  DateTime @default(now())
+  provider    Provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
+  city        City     @relation(fields: [city_id], references: [id], onDelete: Cascade)
+
+  @@unique([provider_id, city_id])
+  @@map("provider_coverage")
+}
+
+model ServiceCoverage {
+  id         Int     @id @default(autoincrement())
+  service_id Int
+  city_id    Int
+  created_at DateTime @default(now())
+  service    Service @relation(fields: [service_id], references: [id], onDelete: Cascade)
+  city       City    @relation(fields: [city_id], references: [id], onDelete: Cascade)
+
+  @@unique([service_id, city_id])
+  @@map("service_coverage")
+}
+
 enum HelpoCategory {
   Cleaning
   Repair
@@ -138,3 +233,166 @@ enum BookingStatus {
   completed
   canceled
 }
+
+// Provider working schedule (weekly recurring hours)
+model ProviderSchedule {
+  id           Int     @id @default(autoincrement())
+  provider_id  Int
+  day_of_week  Int     // 0=Sunday, 1=Monday, ..., 6=Saturday
+  start_time   String  // "09:00"
+  end_time     String  // "17:00"
+  is_available Boolean @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  
+  provider Provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
+  
+  @@unique([provider_id, day_of_week])
+  @@map("provider_schedules")
+}
+
+// Individual time slots for specific dates
+model TimeSlot {
+  id          Int      @id @default(autoincrement())
+  provider_id Int
+  date        DateTime @db.Date
+  start_time  String   // "09:00"
+  end_time    String   // "10:00"
+  is_available Boolean @default(true)
+  is_booked   Boolean @default(false)
+  booking_id  Int?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  provider Provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
+  booking  Booking?  @relation(fields: [booking_id], references: [id], onDelete: SetNull)
+  
+  @@unique([provider_id, date, start_time])
+  @@index([provider_id, date])
+  @@index([date, is_available])
+  @@map("time_slots")
+}
+
+// === MESSAGING SYSTEM ===
+
+model Conversation {
+  id              Int             @id @default(autoincrement())
+  type            ConversationType @default(DIRECT)
+  title           String?         // Optional title for group chats
+  booking_id      Int?            // Link to booking if conversation is about a booking
+  last_message_at DateTime        @default(now())
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+  
+  // Relations
+  participants    ConversationParticipant[]
+  messages        Message[]
+  booking         Booking?        @relation(fields: [booking_id], references: [id], onDelete: SetNull)
+  
+  @@index([booking_id])
+  @@index([last_message_at])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id              Int             @id @default(autoincrement())
+  conversation_id Int
+  user_id         Int
+  role            ParticipantRole @default(MEMBER)
+  joined_at       DateTime        @default(now())
+  last_read_at    DateTime?       // For read receipts
+  is_muted        Boolean         @default(false)
+  is_archived     Boolean         @default(false)
+  
+  // Relations
+  conversation    Conversation    @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@unique([conversation_id, user_id])
+  @@index([user_id])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id              Int             @id @default(autoincrement())
+  conversation_id Int
+  sender_id       Int
+  content         String?         // Text content
+  message_type    MessageType     @default(TEXT)
+  reply_to_id     Int?            // For threaded replies
+  edited_at       DateTime?
+  deleted_at      DateTime?
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+  
+  // Metadata for different message types
+  metadata        Json?           // Store file info, system message data, etc.
+  
+  // Relations
+  conversation    Conversation    @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  sender          User            @relation(fields: [sender_id], references: [id], onDelete: Cascade)
+  reply_to        Message?        @relation("MessageReplies", fields: [reply_to_id], references: [id], onDelete: SetNull)
+  replies         Message[]       @relation("MessageReplies")
+  attachments     MessageAttachment[]
+  reactions       MessageReaction[]
+  
+  @@index([conversation_id, created_at])
+  @@index([sender_id])
+  @@index([reply_to_id])
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id          Int      @id @default(autoincrement())
+  message_id  Int
+  filename    String
+  file_url    String
+  file_type   String   // image/jpeg, application/pdf, etc.
+  file_size   Int      // in bytes
+  created_at  DateTime @default(now())
+  
+  // Relations
+  message     Message  @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  
+  @@index([message_id])
+  @@map("message_attachments")
+}
+
+model MessageReaction {
+  id         Int      @id @default(autoincrement())
+  message_id Int
+  user_id    Int
+  emoji      String   // Unicode emoji
+  created_at DateTime @default(now())
+  
+  // Relations
+  message    Message  @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@unique([message_id, user_id, emoji])
+  @@index([message_id])
+  @@map("message_reactions")
+}
+
+enum ConversationType {
+  DIRECT    // 1-on-1 conversation
+  GROUP     // Group conversation
+  SUPPORT   // Customer support conversation
+}
+
+enum ParticipantRole {
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM    // System-generated messages (booking status changes, etc.)
+  BOOKING_REQUEST
+  BOOKING_UPDATE
+}
+
+

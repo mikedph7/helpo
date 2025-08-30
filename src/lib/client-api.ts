@@ -124,9 +124,17 @@ export class ClientApiClient {
     });
   }
 
-  async cancelBooking(id: number | string): Promise<Booking> {
+  async cancelBooking(
+    id: number | string, 
+    cancellationReason: string, 
+    cancellationDetails?: string
+  ): Promise<Booking> {
     return this.request<Booking>(`/bookings/${id}`, {
       method: 'DELETE',
+      body: JSON.stringify({
+        cancellation_reason: cancellationReason,
+        cancellation_details: cancellationDetails
+      }),
     });
   }
 

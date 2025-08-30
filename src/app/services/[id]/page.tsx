@@ -1,24 +1,49 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import React from "react";
-import { createServerApiClient, type Service as ApiService, type Review as ApiReview, type Provider as ApiProvider } from "@/lib/api-client";
+import React, { useEffect, useState } from "react";
 import PhotoCarousel from "./_components/photo-carousel";
 import FavoriteButton from "./_components/favorite-button";
+import MessageProviderButton from "@/components/message-provider-button";
 import { ArrowLeft } from "lucide-react";
 
-// Use the API types directly
-type Review = ApiReview;
-type Provider = ApiProvider;
-type Service = ApiService;
+// Define types locally to avoid import issues
+interface Review {
+  id: number;
+  rating: number;
+  comment?: string;
+  created_at: string;
+  user?: {
+    name?: string;
+    photo_url?: string;
+  };
+}
 
-async function getService(id: string): Promise<Service | null> {
-  try {
-    const apiClient = await createServerApiClient();
-    return await apiClient.getService(parseInt(id));
-  } catch (error) {
-    console.error('Failed to fetch service:', error);
-    return null;
-  }
+interface Provider {
+  id: number;
+  name: string;
+  photo_url?: string;
+  location?: string;
+  verified?: boolean;
+  average_rating?: number;
+  rating_count?: number;
+}
+
+interface Service {
+  id: number;
+  name: string;
+  description: string;
+  price_from?: number;
+  images?: string[];
+  top_rated?: boolean;
+  verified?: boolean;
+  next_availability?: string;
+  provider?: Provider;
+  what_included?: string[];
+  requirements?: string[];
+  reviews?: Review[];
+  category?: string;
 }
 
 function StarRating({ rating, showNumber = false }: { rating: number; showNumber?: boolean }) {
@@ -39,8 +64,53 @@ function StarRating({ rating, showNumber = false }: { rating: number; showNumber
   );
 }
 
-export default async function ServiceDetail({ params }: { params: { id: string } }) {
-  const service = await getService(params.id);
+export default function ServiceDetail({ params }: { params: Promise<{ id: string }> }) {
+  const [service, setService] = useState<Service | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [serviceId, setServiceId] = useState<string>("");
+
+  useEffect(() => {
+    const getParams = async () => {
+      const resolvedParams = await params;
+      setServiceId(resolvedParams.id);
+    };
+    getParams();
+  }, [params]);
+
+  useEffect(() => {
+    if (!serviceId) return;
+
+    const fetchService = async () => {
+      try {
+        const response = await fetch(`/api/dev/services/${serviceId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setService(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch service:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchService();
+  }, [serviceId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+            <div className="h-64 bg-gray-200 rounded mb-6"></div>
+            <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+            <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   if (!service) {
     return (
@@ -72,13 +142,10 @@ export default async function ServiceDetail({ params }: { params: { id: string }
     );
   }
 
-  const averageRating = service.stats?.average_rating 
-    ? service.stats.average_rating 
-    : service.provider?.average_rating || 0;
-
-  const reviewCount = service.stats?.review_count || service.provider?.rating_count || 0;
-
-  return (
+  
+  // Calculate review statistics
+  const averageRating = service.provider?.average_rating || 0;
+  const reviewCount = service.provider?.rating_count || service.reviews?.length || 0;  return (
     <div className="min-h-screen bg-white">
       {/* Sub Header */}
       <div className="bg-white shadow-sm">
@@ -241,7 +308,7 @@ export default async function ServiceDetail({ params }: { params: { id: string }
                       {review.user?.photo_url && (
                         <Image
                           src={review.user.photo_url}
-                          alt={review.user.name}
+                          alt={review.user.name || 'User'}
                           fill
                           className="object-cover"
                         />
@@ -277,12 +344,26 @@ export default async function ServiceDetail({ params }: { params: { id: string }
               <div className="text-sm text-gray-600">Next available: {service.next_availability}</div>
             )}
           </div>
-          <Link 
-            href={`/bookings/new/${service.id}`}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors text-center w-full sm:w-auto"
-          >
-            Book Now
-          </Link>
+          <div className="flex gap-3 w-full sm:w-auto">
+            {service.provider && (
+              <MessageProviderButton 
+                data={{ 
+                  providerId: service.provider.id,
+                  title: `${service.name} - ${service.provider.name}`
+                }}
+                variant="outline"
+                className="flex-1 sm:flex-none"
+              >
+                Message
+              </MessageProviderButton>
+            )}
+            <Link 
+              href={`/bookings/new/${service.id}`}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors text-center flex-1 sm:flex-none"
+            >
+              Book Now
+            </Link>
+          </div>
         </div>
       </div>
     </div>

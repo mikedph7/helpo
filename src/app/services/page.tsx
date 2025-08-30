@@ -23,6 +23,8 @@ export default async function ServicesPage({ searchParams }: PageProps) {
     if (params?.q) apiParams.q = params.q;
     if (params?.category) apiParams.category = params.category as HelpoCategory;
     if (params?.location) apiParams.location = params.location;
+    if (params?.date) apiParams.date = params.date;
+    if (params?.time) apiParams.time = params.time;
     if (params?.sortBy) apiParams.sortBy = params.sortBy;
     
     // Fetch services using the API client
@@ -30,6 +32,9 @@ export default async function ServicesPage({ searchParams }: PageProps) {
   
     const initialQ = (params?.q ?? '').toString();
     const initialCategory = (params?.category ?? '').toString();
+    const initialLocation = (params?.location ?? '').toString();
+    const initialDate = (params?.date ?? '').toString();
+    const initialTime = (params?.time ?? '').toString();
 
     return (
       <div className="min-h-screen bg-gray-50">
@@ -48,6 +53,9 @@ export default async function ServicesPage({ searchParams }: PageProps) {
             services={services}
             initialQ={initialQ}
             initialCategory={initialCategory}
+            initialLocation={initialLocation}
+            initialDate={initialDate}
+            initialTime={initialTime}
           />
         </div>
       </div>

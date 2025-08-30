@@ -150,11 +150,30 @@ export async function DELETE(
       );
     }
 
-    // Delete booking (or mark as canceled)
+    // Parse cancellation data from request body
+    let cancellationData = {};
+    try {
+      const body = await request.text();
+      if (body) {
+        cancellationData = JSON.parse(body);
+      }
+    } catch (error) {
+      console.log('No cancellation data provided');
+    }
+
+    const { cancellation_reason, cancellation_details } = cancellationData as {
+      cancellation_reason?: string;
+      cancellation_details?: string;
+    };
+
+    // Delete booking (or mark as canceled) with cancellation data
     const deletedBooking = await prisma.booking.update({
       where: { id: bookingId },
       data: {
         status: 'canceled',
+        cancellation_reason,
+        cancellation_details,
+        canceled_at: new Date(),
         updated_at: new Date()
       }
     });

@@ -1,6 +1,81 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Function to get all location variations using database (type-safe)
+async function getLocationSearchTerms(searchLocation: string): Promise<string[]> {
+  const normalizedLocation = searchLocation.toLowerCase().trim();
+  const searchTerms = [normalizedLocation];
+  
+  try {
+    // 1. Search for exact city match
+    const city = await (prisma as any).city.findFirst({
+      where: {
+        name: {
+          equals: normalizedLocation,
+          mode: "insensitive"
+        }
+      },
+      include: {
+        areas: true
+      }
+    });
+
+    if (city) {
+      searchTerms.push(city.name.toLowerCase());
+      // Add all areas within this city
+      city.areas.forEach((area: any) => {
+        searchTerms.push(area.name.toLowerCase());
+        // Add all aliases for each area
+        area.aliases.forEach((alias: string) => searchTerms.push(alias.toLowerCase()));
+      });
+    }
+
+    // 2. Search areas that match the location or have matching aliases
+    const areas = await (prisma as any).area.findMany({
+      where: {
+        OR: [
+          {
+            name: {
+              contains: normalizedLocation,
+              mode: "insensitive"
+            }
+          }
+        ]
+      },
+      include: {
+        city: true
+      }
+    });
+
+    // Check aliases manually since Prisma array operations are limited
+    const allAreas = await (prisma as any).area.findMany({
+      include: {
+        city: true
+      }
+    });
+
+    allAreas.forEach((area: any) => {
+      // Check if any alias matches (case-insensitive)
+      const aliasMatch = area.aliases.some((alias: string) => 
+        alias.toLowerCase() === normalizedLocation
+      );
+      
+      if (aliasMatch || area.name.toLowerCase().includes(normalizedLocation)) {
+        searchTerms.push(area.name.toLowerCase());
+        searchTerms.push(area.city.name.toLowerCase());
+        area.aliases.forEach((alias: string) => searchTerms.push(alias.toLowerCase()));
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in location search:', error);
+    // Fallback to basic search
+    return [normalizedLocation];
+  }
+  
+  return [...new Set(searchTerms)]; // Remove duplicates
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -29,13 +104,19 @@ export async function GET(request: NextRequest) {
       where.category = category;
     }
     
-    // Location filter (search in provider location)
+    // Enhanced location filter with database-driven hierarchical matching
     if (location) {
+      const searchTerms = await getLocationSearchTerms(location);
+      console.log(`🔍 Searching for "${location}" with terms:`, searchTerms);
+      
+      // Create OR conditions for all search terms
       where.provider = {
-        location: {
-          contains: location,
-          mode: 'insensitive'
-        }
+        OR: searchTerms.map((term: string) => ({
+          location: {
+            contains: term,
+            mode: 'insensitive'
+          }
+        }))
       };
     }
 

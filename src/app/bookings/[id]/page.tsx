@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Clock, MapPin, User, Calendar, Star, Phone, Mail, Edit, X, MessageCircle } from "lucide-react";
 import { ClientApiClient, Booking } from "@/lib/client-api";
+import MessageProviderButton from "@/components/message-provider-button";
 
 export default function BookingDetails({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -71,9 +72,8 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
     
     setCancelling(true);
     try {
-      // For now, we'll pass the cancellation reason in notes when canceling
-      // In a real app, you'd extend the API to support cancellation reasons
-      const cancelledBooking = await client.cancelBooking(booking.id!);
+      // Pass cancellation reason and details to the API
+      const cancelledBooking = await client.cancelBooking(booking.id!, cancellationReason, cancellationDetails);
       
       // Update local state
       setBooking({
@@ -92,8 +92,9 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
   };
 
   const handleContactProvider = () => {
+    // This is now handled by the MessageProviderButton component
     const providerName = booking?.service?.provider?.name || 'Provider';
-    alert(`Contact ${providerName} - This feature will be implemented in a future version.`);
+    console.log(`Starting conversation with ${providerName}`);
   };
 
   if (loading) {
@@ -346,14 +347,19 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
                     Modify Booking
                   </Button>
                   
-                  <Button
-                    onClick={handleContactProvider}
-                    variant="outline"
-                    className="flex items-center gap-2 w-full"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    Contact Provider
-                  </Button>
+                  {booking.service?.provider && (
+                    <MessageProviderButton 
+                      data={{ 
+                        providerId: booking.service.provider.id,
+                        bookingId: booking.id,
+                        title: `Booking #${booking.id} - ${booking.service.provider.name}`
+                      }}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      Contact Provider
+                    </MessageProviderButton>
+                  )}
                   
                   <Button
                     onClick={handleCancelBooking}
@@ -367,15 +373,18 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
                 </>
               )}
               
-              {(booking.status === 'completed' || booking.status === 'canceled') && (
-                <Button
-                  onClick={handleContactProvider}
+              {(booking.status === 'completed' || booking.status === 'canceled') && booking.service?.provider && (
+                <MessageProviderButton 
+                  data={{ 
+                    providerId: booking.service.provider.id,
+                    bookingId: booking.id,
+                    title: `Booking #${booking.id} - ${booking.service.provider.name}`
+                  }}
                   variant="outline"
-                  className="flex items-center gap-2 w-full"
+                  className="w-full"
                 >
-                  <MessageCircle className="w-4 h-4" />
                   Contact Provider
-                </Button>
+                </MessageProviderButton>
               )}
             </div>
           </CardContent>

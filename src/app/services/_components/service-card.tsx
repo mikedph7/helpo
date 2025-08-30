@@ -6,7 +6,9 @@ import Image from 'next/image';
 import { MapPin, Clock, CheckCircle, Star } from 'lucide-react';
 import { StarRating } from '@/components/ui/star-rating';
 import { Badge } from '@/components/ui/badge';
-import type { Service as ApiService } from '@/lib/client-api';
+import { useState, useEffect } from 'react';
+import { getClientBaseUrl } from '@/lib/client-base-url';
+import type { Service as ApiService } from '@/lib/api-client';
 
 // Re-export the Service type from API client for consistency
 export type Service = ApiService;
@@ -23,8 +25,69 @@ const getCategoryDisplayName = (category: string) => {
 };
 
 
-export function ServiceCard({ service }: { service: Service }) {
+export function ServiceCard({ 
+  service, 
+  favorites, 
+  onFavoriteChange 
+}: { 
+  service: Service; 
+  favorites?: number[]; 
+  onFavoriteChange?: (serviceId: number, isFavorited: boolean) => void;
+}) {
   const router = useRouter();
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Update favorite status when favorites array changes
+  useEffect(() => {
+    if (favorites) {
+      setIsFavorited(favorites.includes(service.id));
+    }
+  }, [service.id, favorites]);
+
+  // Toggle favorite status
+  const toggleFavorite = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    e.preventDefault();
+    
+    if (isLoading) return;
+    
+    setIsLoading(true);
+    
+    try {
+      const base = getClientBaseUrl();
+      
+      if (isFavorited) {
+        // Remove from favorites
+        const response = await fetch(`${base}/api/dev/favorites?user_id=42&service_id=${service.id}`, {
+          method: 'DELETE',
+        });
+        
+        if (response.ok) {
+          setIsFavorited(false);
+          onFavoriteChange?.(service.id, false);
+        }
+      } else {
+        // Add to favorites
+        const response = await fetch(`${base}/api/dev/favorites`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ user_id: 42, service_id: service.id }),
+        });
+        
+        if (response.ok || response.status === 409) { // 409 = already favorited
+          setIsFavorited(true);
+          onFavoriteChange?.(service.id, true);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't navigate if clicking on a link or button
@@ -78,6 +141,37 @@ export function ServiceCard({ service }: { service: Service }) {
             </div>
           </div>
         )}
+
+        {/* Heart/Favorite Icon */}
+        <button
+          onClick={toggleFavorite}
+          disabled={isLoading}
+          className="absolute bottom-3 right-3 bg-white/80 backdrop-blur-sm hover:bg-white rounded-full p-2 shadow-lg transition-all z-10 disabled:opacity-50"
+          aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <svg 
+            className={`w-4 h-4 transition-colors ${
+              isFavorited 
+                ? 'text-red-500 fill-current' 
+                : 'text-gray-600 hover:text-red-500'
+            }`} 
+            fill={isFavorited ? 'currentColor' : 'none'} 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" 
+            />
+          </svg>
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-3 h-3 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin"></div>
+            </div>
+          )}
+        </button>
       </div>
 
       {/* Content Section */}

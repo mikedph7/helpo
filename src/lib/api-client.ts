@@ -269,10 +269,18 @@ export class HelpoApiClient {
     });
   }
 
-  async cancelBooking(id: number | string): Promise<Booking> {
+  async cancelBooking(
+    id: number | string, 
+    cancellationReason: string, 
+    cancellationDetails?: string
+  ): Promise<Booking> {
     return this.fetchApi<Booking>(`/bookings/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ status: 'cancelled' }),
+      body: JSON.stringify({ 
+        status: 'cancelled',
+        cancellation_reason: cancellationReason,
+        cancellation_details: cancellationDetails
+      }),
     });
   }
 

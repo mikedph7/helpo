@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import LocationAutocomplete from '@/components/location-autocomplete';
 import {
   Select,
   SelectTrigger,
@@ -105,14 +106,20 @@ type RecentSearch = {
 type Props = {
   q: string;
   category: string;
+  location?: string;
+  date?: string;
+  time?: string;
   categories: string[];
-  onChange: (next: { q: string; category: string }) => void;
+  onChange: (next: { q: string; category: string; location?: string; date?: string; time?: string }) => void;
   showReset?: boolean;
 };
 
 export default function ServiceSearchBox({
   q,
   category,
+  location = '',
+  date = '',
+  time = 'any',
   categories,
   onChange,
   showReset = true,
@@ -120,9 +127,9 @@ export default function ServiceSearchBox({
   const [filters, setFilters] = useState<SearchFilters>({
     q,
     category,
-    date: '',
-    time: 'any',
-    location: '',
+    date,
+    time,
+    location,
   });
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -182,7 +189,13 @@ export default function ServiceSearchBox({
       location: recentSearch.location
     };
     setFilters(newFilters);
-    onChange({ q: newFilters.q, category: newFilters.category });
+    onChange({ 
+      q: newFilters.q, 
+      category: newFilters.category,
+      location: newFilters.location,
+      date: newFilters.date,
+      time: newFilters.time
+    });
     setIsExpanded(false);
   };
 
@@ -190,9 +203,14 @@ export default function ServiceSearchBox({
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
     
-    if (key === 'q' || key === 'category') {
-      onChange({ q: newFilters.q, category: newFilters.category });
-    }
+    // Always notify parent of all filter changes
+    onChange({ 
+      q: newFilters.q, 
+      category: newFilters.category,
+      location: newFilters.location,
+      date: newFilters.date,
+      time: newFilters.time
+    });
   };
 
   const handleSearch = () => {
@@ -205,14 +223,20 @@ export default function ServiceSearchBox({
     };
     
     saveRecentSearch(searchData);
-    onChange({ q: filters.q, category: filters.category });
+    onChange({ 
+      q: filters.q, 
+      category: filters.category,
+      location: filters.location,
+      date: filters.date,
+      time: filters.time
+    });
     setIsExpanded(false);
   };
 
   const reset = () => {
     const resetFilters = { q: '', category: '', date: '', time: 'any', location: '' };
     setFilters(resetFilters);
-    onChange({ q: '', category: '' });
+    onChange({ q: '', category: '', location: '', date: '', time: 'any' });
   };
 
   const clearRecentSearches = () => {
@@ -308,11 +332,11 @@ export default function ServiceSearchBox({
                   Where
                 </label>
                 <div className="relative">
-                  <LocationIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="City or area"
+                  <LocationIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none z-10" />
+                  <LocationAutocomplete
                     value={filters.location}
-                    onChange={(e) => updateFilter('location', e.target.value)}
+                    onChange={(value) => updateFilter('location', value)}
+                    placeholder="City or area"
                     className="pl-10 h-10 text-sm border-gray-200 focus:border-blue-500"
                   />
                 </div>

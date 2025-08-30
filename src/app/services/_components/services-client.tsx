@@ -4,7 +4,8 @@ import * as React from 'react';
 import { useMemo, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import ServiceSearchBox from './service-searchbox';
-import { ServiceCard, type Service } from './service-card';
+import { ServiceCard } from './service-card';
+import type { Service } from '@/lib/api-client';
 
 function useDebounced<T>(value: T, delay = 250) {
   const [debounced, setDebounced] = useState(value);
@@ -15,48 +16,86 @@ function useDebounced<T>(value: T, delay = 250) {
   return debounced;
 }
 
-function textOf(s: Service) {
-  return [s.name ?? '', s.description ?? '', s.category ?? '']
-    .join(' ')
-    .toLowerCase();
-}
-
 type Props = {
   services: Service[];
   initialQ?: string;
   initialCategory?: string;
+  initialLocation?: string;
+  initialDate?: string;
+  initialTime?: string;
   emptyState?: React.ReactNode;
 };
 
 export default function ServicesClient({
-  services,
+  services: initialServices,
   initialQ = '',
   initialCategory = '',
+  initialLocation = '',
+  initialDate = '',
+  initialTime = '',
   emptyState = <div className="text-sm opacity-70">No services match your filters.</div>,
 }: Props) {
   const [q, setQ] = useState(initialQ);
+  const [location, setLocation] = useState(initialLocation);
+  const [date, setDate] = useState(initialDate);
+  const [time, setTime] = useState(initialTime);
+  const [services, setServices] = useState<Service[]>(initialServices);
+  const [isLoading, setIsLoading] = useState(false);
+  const [favorites, setFavorites] = useState<number[]>([]);
 
   // Treat undefined as "All"
   const [category, setCategory] = useState<string | undefined>(
     initialCategory && initialCategory !== 'all' ? initialCategory : undefined
   );
   const debouncedQ = useDebounced(q, 250);
+  const debouncedLocation = useDebounced(location, 250);
 
   // 🔽 HARD-LIMIT categories to your 4 focus areas
   const categories: Array<Service['category']> = ['Cleaning', 'Repair', 'Pets', 'Lessons'];
 
-  const filtered = useMemo(() => {
-    const qLower = debouncedQ.toLowerCase();
-    return services.filter((s) => {
-      const inCat =
-        !category ||
-        (s.category ?? '').toLowerCase() === category.toLowerCase();
-      const matches = !qLower || textOf(s).includes(qLower);
-      return inCat && matches;
-    });
-  }, [services, debouncedQ, category]);
+  // Fetch services when search parameters change
+  useEffect(() => {
+    const fetchServices = async () => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (debouncedQ) params.set('q', debouncedQ);
+        if (category) params.set('category', category);
+        if (debouncedLocation) params.set('location', debouncedLocation);
+        if (date) params.set('date', date);
+        if (time && time !== 'any') params.set('time', time);
 
-  // URL sync (?q=&category=)
+        const url = `/api/dev/services${params.toString() ? `?${params.toString()}` : ''}`;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch services');
+        }
+        
+        const data = await response.json();
+        setServices(data.services || []);
+      } catch (error) {
+        console.error('Failed to fetch services:', error);
+        // Keep current services on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Only fetch if we have search parameters different from initial
+    const hasChanged = 
+      debouncedQ !== initialQ ||
+      category !== (initialCategory && initialCategory !== 'all' ? initialCategory : undefined) ||
+      debouncedLocation !== initialLocation ||
+      date !== initialDate ||
+      time !== initialTime;
+
+    if (hasChanged) {
+      fetchServices();
+    }
+  }, [debouncedQ, category, debouncedLocation, date, time, initialQ, initialCategory, initialLocation, initialDate, initialTime]);
+
+  // URL sync (?q=&category=&location=&date=&time=)
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -65,25 +104,65 @@ export default function ServicesClient({
     const next = new URLSearchParams(searchParams?.toString());
     debouncedQ ? next.set('q', debouncedQ) : next.delete('q');
     category ? next.set('category', category) : next.delete('category');
+    debouncedLocation ? next.set('location', debouncedLocation) : next.delete('location');
+    date ? next.set('date', date) : next.delete('date');
+    time && time !== 'any' ? next.set('time', time) : next.delete('time');
 
     const href = `${pathname}${next.toString() ? `?${next.toString()}` : ''}`;
     router.replace(href, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQ, category]);
+  }, [debouncedQ, category, debouncedLocation, date, time]);
+
+  // Fetch favorites once when component mounts
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      try {
+        const response = await fetch('/api/dev/favorites?user_id=42');
+        if (response.ok) {
+          const data = await response.json();
+          const favoritesArray = data.favorites || []; // Extract the favorites array
+          setFavorites(favoritesArray.map((fav: any) => fav.service_id));
+        }
+      } catch (error) {
+        console.error('Failed to fetch favorites:', error);
+      }
+    };
+    
+    fetchFavorites();
+  }, []);
+
+  // Function to update favorites list
+  const updateFavorites = (serviceId: number, isFavorited: boolean) => {
+    if (isFavorited) {
+      setFavorites(prev => [...prev, serviceId]);
+    } else {
+      setFavorites(prev => prev.filter(id => id !== serviceId));
+    }
+  };
 
   return (
     <>
       <ServiceSearchBox
         q={q}
         category={category || ''}         // convert undefined to empty string
+        location={location}
+        date={date}
+        time={time}
         categories={categories}           // now a fixed list
-        onChange={({ q, category }) => {
+        onChange={({ q, category, location, date, time }) => {
           setQ(q);
           setCategory(category || undefined);          // convert empty string back to undefined
+          setLocation(location || '');
+          setDate(date || '');
+          setTime(time || '');
         }}
       />
 
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="text-center py-12">
+          <div className="text-gray-400 mb-2">Loading services...</div>
+        </div>
+      ) : services.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-gray-400 mb-2">
             <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -95,8 +174,13 @@ export default function ServicesClient({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filtered.map((s) => (
-            <ServiceCard key={s.id} service={s} />
+          {services.map((s) => (
+            <ServiceCard 
+              key={s.id} 
+              service={s as Service} 
+              favorites={favorites} 
+              onFavoriteChange={updateFavorites}
+            />
           ))}
         </div>
       )}
