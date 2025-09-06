@@ -15,9 +15,11 @@ import {
   HelpCircle, 
   User as UserIcon,
   Mail,
-  Shield
+  Shield,
+  Wallet
 } from "lucide-react";
 import Link from "next/link";
+import WalletComponent from "@/components/wallet-component";
 
 export default function ProfilePage() {
   const { user, logout, isLoading } = useAuth();
@@ -56,9 +58,14 @@ export default function ProfilePage() {
         <div className="text-center py-12">
           <h1 className="text-2xl font-semibold mb-4">Please sign in</h1>
           <p className="text-gray-600 mb-6">You need to be logged in to view your profile</p>
-          <Button asChild>
-            <Link href="/auth/login">Sign In</Link>
-          </Button>
+          <div className="flex items-center justify-center gap-3">
+            <Button asChild>
+              <Link href="/auth/login">Login</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/auth/register">Sign Up</Link>
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -143,6 +150,9 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Wallet Section */}
+        <WalletComponent userId={user.id} initialBalance={0} />
 
         {/* User Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

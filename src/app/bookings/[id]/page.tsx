@@ -8,9 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Clock, MapPin, User, Calendar, Star, Phone, Mail, Edit, X, MessageCircle } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, User, Calendar, Star, Phone, Mail, Edit, X, MessageCircle, CreditCard, AlertCircle, CheckCircle } from "lucide-react";
 import { ClientApiClient, Booking } from "@/lib/client-api";
 import MessageProviderButton from "@/components/message-provider-button";
+import ResubmitPaymentComponent from "@/components/resubmit-payment";
+import ReviewSubmissionComponent from "@/components/review-submission";
+import ReviewsDisplay from "@/components/reviews-display";
+import { useToast } from "@/hooks/use-toast";
 
 export default function BookingDetails({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -22,6 +26,7 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
   const [cancellationDetails, setCancellationDetails] = useState<string>("");
   const [bookingId, setBookingId] = useState("");
   const client = useMemo(() => new ClientApiClient(), []);
+  const { toast } = useToast();
 
   const cancellationReasons = [
     "Too expensive, found cheaper price",
@@ -41,20 +46,20 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
 
   useEffect(() => {
     if (!bookingId) return;
-
-    const fetchBooking = async () => {
-      try {
-        const data = await client.getBooking(bookingId);
-        setBooking(data);
-      } catch (error) {
-        console.error("Failed to fetch booking:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchBooking();
   }, [bookingId]); // Removed client from dependencies
+
+  const fetchBooking = async () => {
+    try {
+      setLoading(true);
+      const data = await client.getBooking(bookingId);
+      setBooking(data);
+    } catch (error) {
+      console.error("Failed to fetch booking:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleModifyBooking = () => {
     if (!booking?.service?.id) return;
@@ -81,11 +86,11 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
         status: cancelledBooking.status || 'canceled'
       });
       
-      setShowCancelModal(false);
-      alert('Booking has been cancelled successfully.');
+  setShowCancelModal(false);
+  toast({ title: 'Booking cancelled', description: 'Your booking was cancelled successfully.', variant: 'success' });
     } catch (error) {
-      console.error('Failed to cancel booking:', error);
-      alert('Failed to cancel booking. Please try again.');
+  console.error('Failed to cancel booking:', error);
+  toast({ title: 'Cancellation failed', description: 'Please try again.', variant: 'destructive' });
     } finally {
       setCancelling(false);
     }
@@ -96,6 +101,8 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
     const providerName = booking?.service?.provider?.name || 'Provider';
     console.log(`Starting conversation with ${providerName}`);
   };
+
+  // Payment-first model: No in-page payment for existing bookings
 
   if (loading) {
     return (
@@ -329,6 +336,123 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
           </Card>
         )}
 
+        {/* Payment Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5" />
+              Payment Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Payment Summary */}
+              <div className="flex justify-between items-center py-2 border-b">
+                <span className="text-sm text-gray-600">Total Amount</span>
+                <span className="font-semibold">
+                  {booking.total_price ? `₱${(booking.total_price / 100).toFixed(2)}` : 'No price'}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Payment Status</span>
+                <div className="flex items-center gap-2">
+                  {booking.payment_status === 'paid' ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-600">Paid & Verified</span>
+                    </>
+                  ) : booking.payment_status === 'pending' ? (
+                    <>
+                      <Clock className="w-4 h-4 text-yellow-600" />
+                      <span className="text-sm font-medium text-yellow-600">Pending Verification</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      <span className="text-sm font-medium text-red-600">
+                        {booking.payment_status || 'Unknown'}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Payment History */}
+              {booking.payments && booking.payments.length > 0 && (
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Payment History</h4>
+                  <div className="space-y-3">
+                    {booking.payments.map((payment, index) => (
+                      <div key={payment.id} className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="text-sm font-medium">
+                              {payment.payment_method} Payment
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(payment.created_at).toLocaleDateString()} at{' '}
+                              {new Date(payment.created_at).toLocaleTimeString()}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                              payment.status === 'paid' ? 'bg-green-100 text-green-800' :
+                              payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {payment.status === 'paid' ? 'Verified' :
+                               payment.status === 'pending' ? 'Pending' :
+                               'Rejected'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {payment.reference_number && (
+                          <p className="text-xs text-gray-600 mb-1">
+                            Ref: {payment.reference_number}
+                          </p>
+                        )}
+                        
+                        {payment.admin_notes && payment.status === 'failed' && (
+                          <div className="bg-red-50 border border-red-200 rounded p-2 mt-2">
+                            <p className="text-xs text-red-700">
+                              <strong>Admin Note:</strong> {payment.admin_notes}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {payment.proof_image_url && (
+                          <div className="mt-2">
+                            <img
+                              src={payment.proof_image_url}
+                              alt="Payment proof"
+                              className="max-w-32 h-auto rounded border"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Show resubmit option if last payment was rejected */}
+                  {booking.payments[0]?.status === 'failed' && (
+                    <div className="mt-4 pt-4 border-t">
+                      <ResubmitPaymentComponent
+                        bookingId={booking.id!}
+                        onSuccess={() => {
+                          // Refresh booking data
+                          fetchBooking();
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Action Buttons */}
         <Card>
           <CardHeader>
@@ -336,6 +460,8 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* No Pay Now here: bookings are payment-first; pending/confirmed already paid */}
+
               {(booking.status === 'pending' || booking.status === 'confirmed') && (
                 <>
                   <Button
@@ -357,6 +483,7 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
                       variant="outline"
                       className="w-full"
                     >
+                      <MessageCircle className="w-4 h-4 mr-2" />
                       Contact Provider
                     </MessageProviderButton>
                   )}
@@ -389,7 +516,51 @@ export default function BookingDetails({ params }: { params: Promise<{ id: strin
             </div>
           </CardContent>
         </Card>
+
+        {/* Service Reviews */}
+        {booking.service?.id && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Star className="w-5 h-5" />
+                Service Reviews
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ReviewsDisplay 
+                serviceId={booking.service.id} 
+                serviceName={booking.service.name || 'Service'}
+                showTitle={false}
+                maxReviews={3}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Review Section - Only for completed bookings */}
+        {booking.status === 'completed' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Star className="w-5 h-5" />
+                Share Your Experience
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ReviewSubmissionComponent 
+                bookingId={booking.id!} 
+                serviceName={booking.service?.name || 'Service'}
+                onReviewSubmitted={() => {
+                  // Refresh the reviews display
+                  window.location.reload();
+                }}
+              />
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+  {/* No Payment Modal; payments happen during creation flow */}
 
       {/* Cancellation Modal */}
       {showCancelModal && (

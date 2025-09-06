@@ -1,20 +1,136 @@
 const { PrismaClient } = require('@prisma/client')
+const bcrypt = require('bcryptjs')
 
 const prisma = new PrismaClient()
+
+// Helper: seed weekly ProviderSchedule + 30 days of hourly TimeSlots for each provider
+async function seedSchedulesAndTimeSlotsForProviders(providers) {
+  console.log('🗓️ Seeding Provider Schedules and Time Slots...')
+
+  // Define weekly working hours
+  const weekDays = [
+    { day: 1, start: '09:00', end: '17:00' }, // Monday
+    { day: 2, start: '09:00', end: '17:00' }, // Tuesday
+    { day: 3, start: '09:00', end: '17:00' }, // Wednesday
+    { day: 4, start: '09:00', end: '17:00' }, // Thursday
+    { day: 5, start: '09:00', end: '17:00' }, // Friday
+    { day: 6, start: '10:00', end: '14:00' }  // Saturday
+  ]
+
+  for (const provider of providers) {
+    for (const schedule of weekDays) {
+      // Upsert weekly schedule
+      await prisma.providerSchedule.upsert({
+        where: {
+          provider_id_day_of_week: {
+            provider_id: provider.id,
+            day_of_week: schedule.day,
+          },
+        },
+        update: {
+          start_time: schedule.start,
+          end_time: schedule.end,
+          is_available: true,
+        },
+        create: {
+          provider_id: provider.id,
+          day_of_week: schedule.day,
+          start_time: schedule.start,
+          end_time: schedule.end,
+          is_available: true,
+        },
+      })
+
+      // Generate time slots for next 30 days (1-hour slots)
+      const today = new Date()
+      for (let dayOffset = 0; dayOffset < 30; dayOffset++) {
+        const d = new Date(today)
+        d.setDate(today.getDate() + dayOffset)
+        // Match weekday (0=Sun..6=Sat)
+        if (d.getDay() !== schedule.day) continue
+
+        const startHour = parseInt(schedule.start.split(':')[0], 10)
+        const endHour = parseInt(schedule.end.split(':')[0], 10)
+
+        // Ensure date-only (UTC midnight) for @db.Date
+        const dateOnly = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+
+        for (let hour = startHour; hour < endHour; hour++) {
+          const slotStart = `${hour.toString().padStart(2, '0')}:00`
+          const slotEnd = `${(hour + 1).toString().padStart(2, '0')}:00`
+
+          await prisma.timeSlot.upsert({
+            where: {
+              provider_id_date_start_time: {
+                provider_id: provider.id,
+                date: dateOnly,
+                start_time: slotStart,
+              },
+            },
+            update: {
+              is_available: true,
+              end_time: slotEnd,
+            },
+            create: {
+              provider_id: provider.id,
+              date: dateOnly,
+              start_time: slotStart,
+              end_time: slotEnd,
+              is_available: true,
+            },
+          })
+        }
+      }
+    }
+  }
+
+  const totalSchedules = await prisma.providerSchedule.count()
+  const totalTimeSlots = await prisma.timeSlot.count()
+  console.log(`📊 Seeded Schedules: ${totalSchedules}, Time Slots: ${totalTimeSlots}`)
+}
 
 async function main() {
   try {
     console.log('🌱 Starting database seeding with realistic data...')
 
-    // Clear existing data
+    // Clear existing data in correct order (respecting foreign key constraints)
     await prisma.favorite.deleteMany()
     await prisma.review.deleteMany()
-    await prisma.booking.deleteMany()
+    await prisma.payment.deleteMany()
+    await prisma.walletTransaction.deleteMany()
+    await prisma.ledgerEntry.deleteMany()
+    await prisma.walletSnapshot.deleteMany()
+    await prisma.walletAccount.deleteMany()
+  await prisma.booking.deleteMany()
+  // Clear schedules and time slots to avoid duplicates
+  await prisma.timeSlot.deleteMany()
+  await prisma.providerSchedule.deleteMany()
     await prisma.service.deleteMany()
     await prisma.provider.deleteMany()
     await prisma.user.deleteMany()
 
     console.log('🧹 Cleared existing data')
+
+    // Create a login-capable test user (used for API auth tests)
+    const testUser = await prisma.user.create({
+      data: {
+        email: 'test@helpo.com',
+        name: 'Test User',
+        password_hash: await bcrypt.hash('password123', 10),
+      }
+    })
+    console.log(`✅ Created test user: ${testUser.email} / password123`)
+
+    // Create admin user
+    const adminUser = await prisma.user.create({
+      data: {
+        email: 'admin@helpo.com',
+        name: 'Admin User',
+        password_hash: await bcrypt.hash('admin123', 10),
+        role: 'ADMIN'
+      }
+    })
+    console.log(`✅ Created admin user: ${adminUser.email} / admin123`)
 
     // Create realistic users with diverse backgrounds
     const userData = [
@@ -122,14 +238,32 @@ async function main() {
     ]
 
     const providers = []
-    for (const provider of providerData) {
+  for (const provider of providerData) {
       const createdProvider = await prisma.provider.create({
         data: provider
       })
       providers.push(createdProvider)
     }
 
-    console.log(`✅ Created ${providers.length} specialized providers`)
+  console.log(`✅ Created ${providers.length} specialized providers`)
+
+  // Seed schedules and time slots for these providers
+  await seedSchedulesAndTimeSlotsForProviders(providers)
+
+    // Create a provider login account and link to first provider
+    const providerUser = await prisma.user.create({
+      data: {
+        email: 'provider@helpo.com',
+        name: 'Provider Admin',
+        password_hash: await bcrypt.hash('provider123', 10),
+        role: 'PROVIDER'
+      }
+    })
+    await prisma.provider.update({
+      where: { id: providers[0].id },
+      data: { user_id: providerUser.id }
+    })
+    console.log(`✅ Created provider user: ${providerUser.email} / provider123 and linked to provider ${providers[0].name}`)
 
     // Create comprehensive service offerings with realistic pricing
     const serviceData = [
@@ -141,7 +275,8 @@ async function main() {
         duration_minutes: 240,
         category: 'Cleaning',
         provider_id: providers[0].id,
-        image_url: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=300'
+        image_url: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=300',
+        auto_confirm: false // Requires provider approval
       },
       {
         title: 'Regular Weekly Cleaning Service',
@@ -150,7 +285,8 @@ async function main() {
         duration_minutes: 120,
         category: 'Cleaning',
         provider_id: providers[0].id,
-        image_url: 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=300'
+        image_url: 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=300',
+        auto_confirm: true // Auto-confirms bookings
       },
       {
         title: 'Post-Construction Cleanup',
@@ -159,7 +295,8 @@ async function main() {
         duration_minutes: 360,
         category: 'Cleaning',
         provider_id: providers[0].id,
-        image_url: 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?w=300'
+        image_url: 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?w=300',
+        auto_confirm: false // Requires provider approval for specialized service
       },
 
       // Home Repair Services
@@ -170,7 +307,8 @@ async function main() {
         duration_minutes: 90,
         category: 'Repair',
         provider_id: providers[1].id,
-        image_url: 'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=300'
+        image_url: 'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=300',
+        auto_confirm: false // Emergency repair requires assessment
       },
       {
         title: 'Electrical Installation & Repair',
@@ -179,7 +317,8 @@ async function main() {
         duration_minutes: 120,
         category: 'Repair',
         provider_id: providers[1].id,
-        image_url: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=300'
+        image_url: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=300',
+        auto_confirm: false // Electrical work requires assessment
       },
       {
         title: 'Furniture Assembly & Carpentry',
@@ -188,7 +327,8 @@ async function main() {
         duration_minutes: 180,
         category: 'Repair',
         provider_id: providers[1].id,
-        image_url: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=300'
+        image_url: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=300',
+        auto_confirm: true // Standard assembly can be auto-confirmed
       },
 
       // Pet Care Services
@@ -199,7 +339,8 @@ async function main() {
         duration_minutes: 120,
         category: 'Pets',
         provider_id: providers[2].id,
-        image_url: 'https://images.unsplash.com/photo-1560807707-8cc77767d783?w=300'
+        image_url: 'https://images.unsplash.com/photo-1560807707-8cc77767d783?w=300',
+        auto_confirm: true // Standard pet grooming can be auto-confirmed
       },
       {
         title: 'Daily Dog Walking Service',
@@ -208,7 +349,8 @@ async function main() {
         duration_minutes: 60,
         category: 'Pets',
         provider_id: providers[2].id,
-        image_url: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=300'
+        image_url: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=300',
+        auto_confirm: true // Dog walking can be auto-confirmed
       },
       {
         title: 'Pet Sitting & Overnight Care',
@@ -217,7 +359,8 @@ async function main() {
         duration_minutes: 720,
         category: 'Pets',
         provider_id: providers[2].id,
-        image_url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=300'
+        image_url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=300',
+        auto_confirm: false // Overnight care requires provider approval
       },
 
       // Tech Services (categorized as Repair)
@@ -228,7 +371,8 @@ async function main() {
         duration_minutes: 180,
         category: 'Repair',
         provider_id: providers[3].id,
-        image_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300'
+        image_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300',
+        auto_confirm: true // Standard computer service can be auto-confirmed
       },
       {
         title: 'Home Network Setup & WiFi Optimization',
@@ -237,7 +381,8 @@ async function main() {
         duration_minutes: 150,
         category: 'Repair',
         provider_id: providers[3].id,
-        image_url: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=300'
+        image_url: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=300',
+        auto_confirm: false // Network setup requires assessment
       },
 
       // Garden Services (categorized as Repair for now)
@@ -248,7 +393,8 @@ async function main() {
         duration_minutes: 480,
         category: 'Repair',
         provider_id: providers[4].id,
-        image_url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=300'
+        image_url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=300',
+        auto_confirm: false // Garden design requires consultation
       },
       {
         title: 'Monthly Garden Maintenance',
@@ -257,7 +403,8 @@ async function main() {
         duration_minutes: 180,
         category: 'Repair',
         provider_id: providers[4].id,
-        image_url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=300'
+        image_url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=300',
+        auto_confirm: true // Regular maintenance can be auto-confirmed
       },
 
       // Music & Arts Lessons
@@ -268,7 +415,8 @@ async function main() {
         duration_minutes: 60,
         category: 'Lessons',
         provider_id: providers[5].id,
-        image_url: 'https://images.unsplash.com/photo-1552422535-c45813c61732?w=300'
+        image_url: 'https://images.unsplash.com/photo-1552422535-c45813c61732?w=300',
+        auto_confirm: true // Music lessons can be auto-confirmed
       },
       {
         title: 'Guitar Lessons - Acoustic & Electric',
@@ -277,7 +425,8 @@ async function main() {
         duration_minutes: 60,
         category: 'Lessons',
         provider_id: providers[5].id,
-        image_url: 'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=300'
+        image_url: 'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=300',
+        auto_confirm: true // Music lessons can be auto-confirmed
       },
       {
         title: 'Voice Training & Singing Lessons',
@@ -286,7 +435,8 @@ async function main() {
         duration_minutes: 60,
         category: 'Lessons',
         provider_id: providers[5].id,
-        image_url: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=300'
+        image_url: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=300',
+        auto_confirm: true // Music lessons can be auto-confirmed
       },
 
       // Academic & Professional Tutoring
@@ -297,7 +447,8 @@ async function main() {
         duration_minutes: 90,
         category: 'Lessons',
         provider_id: providers[6].id,
-        image_url: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=300'
+        image_url: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=300',
+        auto_confirm: true // Tutoring can be auto-confirmed
       },
       {
         title: 'English & Communication Skills Training',
@@ -306,7 +457,8 @@ async function main() {
         duration_minutes: 75,
         category: 'Lessons',
         provider_id: providers[6].id,
-        image_url: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=300'
+        image_url: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=300',
+        auto_confirm: true // Communication training can be auto-confirmed
       },
       {
         title: 'Computer Skills & Digital Literacy',
@@ -315,7 +467,8 @@ async function main() {
         duration_minutes: 120,
         category: 'Lessons',
         provider_id: providers[6].id,
-        image_url: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300'
+        image_url: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300',
+        auto_confirm: true // Computer skills training can be auto-confirmed
       }
     ]
 
@@ -333,7 +486,8 @@ async function main() {
           tags: [],
           what_included: [],
           requirements: [],
-          verified: true
+          verified: true,
+          auto_confirm: service.auto_confirm
         }
       })
       services.push(createdService)

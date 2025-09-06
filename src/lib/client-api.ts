@@ -7,6 +7,7 @@
 
 export type HelpoCategory = 'Cleaning' | 'Repair' | 'Pets' | 'Lessons';
 export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'canceled';
+export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'failed' | 'refunded';
 
 export interface User {
   id: number;
@@ -50,10 +51,23 @@ export interface Service {
   available: boolean;
   top_rated?: boolean;
   verified?: boolean;
+  auto_confirm?: boolean;
   next_availability?: string;
   created_at: string;
   updated_at: string;
   provider?: Provider;
+}
+
+export interface Payment {
+  id: number;
+  amount: number;
+  payment_method: string;
+  status: string;
+  reference_number?: string;
+  proof_image_url?: string;
+  admin_notes?: string;
+  created_at: string;
+  verified_at?: string;
 }
 
 export interface Booking {
@@ -64,12 +78,16 @@ export interface Booking {
   scheduled_at?: string;
   location?: string;
   status?: BookingStatus;
+  payment_status?: PaymentStatus;
   total_price?: number;
   notes?: string;
+  // For creation: API expects a paid payment_id; not stored on Booking
+  payment_id?: number;
   created_at?: string;
   updated_at?: string;
   service?: Service;
   user?: User;
+  payments?: Payment[];
 }
 
 // ============================================================================

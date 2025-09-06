@@ -5,6 +5,7 @@ import { Search, Filter, MessageCircle, MapPin, Clock, Star } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { NewBookingStatus, NewPaymentStatus, getNewBookingStatus, getNewPaymentStatus, BookingStatusConfig } from "@/lib/status-system";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -17,6 +18,7 @@ type Booking = {
     name: string;
     category: string;
     images: string[];
+    auto_confirm?: boolean;
     provider: {
       id: number;
       name: string;
@@ -30,6 +32,7 @@ type Booking = {
   scheduled_at: string;
   location?: string;
   status: BookingStatus;
+  payment_status?: string;
   total_price: number;
   notes?: string;
   created_at: string;
@@ -40,35 +43,23 @@ type Booking = {
   };
 };
 
-const statusConfig = {
-  confirmed: { 
-    label: "Confirmed", 
-    color: "bg-green-100 text-green-800",
-    description: "Your booking is confirmed"
-  },
-  pending: { 
-    label: "Pending", 
-    color: "bg-yellow-100 text-yellow-800",
-    description: "Waiting for provider confirmation"
-  },
-  completed: { 
-    label: "Completed", 
-    color: "bg-blue-100 text-blue-800",
-    description: "Service has been completed"
-  },
-  canceled: { 
-    label: "Canceled", 
-    color: "bg-red-100 text-red-800",
-    description: "This booking was canceled"
-  }
-};
-
-function StatusBadge({ status }: { status: BookingStatus }) {
-  const config = statusConfig[status];
+function StatusBadge({ booking }: { booking: Booking }) {
+  // Get the enhanced status based on booking and payment information
+  const enhancedStatus = getNewBookingStatus(
+    booking.status, 
+    booking.payment_status, 
+    booking.service?.auto_confirm
+  );
+  
+  const config = BookingStatusConfig[enhancedStatus];
+  
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-      {config.label}
-    </span>
+    <div className="flex items-center gap-2">
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+        <span className="mr-1">{config.icon}</span>
+        {config.label}
+      </span>
+    </div>
   );
 }
 
@@ -143,7 +134,7 @@ function BookingCard({ booking }: { booking: Booking }) {
                   </div>
                 </div>
               </div>
-              <StatusBadge status={booking.status} />
+              <StatusBadge booking={booking} />
             </div>
 
             <div className="space-y-1 mb-3">
@@ -232,6 +223,7 @@ export default function BookingsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authRequired, setAuthRequired] = useState(false);
 
   // Debounced search effect
   useEffect(() => {
@@ -239,15 +231,18 @@ export default function BookingsPage() {
       const fetchBookings = async () => {
         try {
           setLoading(true);
-          const params = new URLSearchParams({
-            user_id: '1' // Using test user ID that has actual bookings
-          });
+          const params = new URLSearchParams();
           
           if (searchQuery) {
             params.append('search', searchQuery);
           }
           
-          const response = await fetch(`/api/dev/bookings?${params}`);
+          const response = await fetch(`/api/dev/bookings?${params}`, { credentials: 'include' });
+          if (response.status === 401) {
+            setAuthRequired(true);
+            setBookings([]);
+            return;
+          }
           if (response.ok) {
             const data = await response.json();
             setBookings(data.bookings || []);
@@ -326,6 +321,36 @@ export default function BookingsPage() {
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <p className="text-gray-600">Loading your bookings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, show only Login / Sign Up and hide search/tabs/content
+  if (authRequired) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white shadow-sm">
+          <div className="max-w-4xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 py-10">
+          <div className="text-center py-12 bg-white border rounded-lg">
+            <h2 className="text-xl font-semibold mb-2">Sign in to continue</h2>
+            <p className="text-gray-600 mb-6">Please log in to view and manage your bookings.</p>
+            <div className="flex items-center justify-center gap-3">
+              <Button asChild>
+                <Link href="/auth/login">Login</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/auth/register">Sign Up</Link>
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     );

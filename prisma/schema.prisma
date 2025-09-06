@@ -26,10 +26,20 @@ model User {
   reviews      Review[]
   sessions     Session[]  // For session management
   
+  // Payment relations
+  payments     Payment[]
+  wallet_transactions WalletTransaction[]
+  
   // Messaging relations
   conversations           ConversationParticipant[]
   sent_messages           Message[]
   message_reactions       MessageReaction[]
+  
+  // Wallet relations
+  wallet_account          WalletAccount?
+
+  // Provider relation (if this user is a provider account)
+  provider                Provider?
 
   @@map("users")
 }
@@ -63,6 +73,8 @@ model Provider {
   location         String?
   created_at       DateTime            @default(now())
   updated_at       DateTime            @updatedAt
+  user_id          Int?                // Link to the user account that manages this provider
+  user             User?               @relation(fields: [user_id], references: [id], onDelete: SetNull)
   bookings         Booking[]
   services         Service[]
   coverage_cities  ProviderCoverage[]
@@ -70,6 +82,7 @@ model Provider {
   time_slots       TimeSlot[]
 
   @@map("providers")
+  @@unique([user_id])
 }
 
 model Service {
@@ -86,6 +99,7 @@ model Service {
   pricing_details   Json?
   top_rated         Boolean           @default(false)
   verified          Boolean           @default(false)
+  auto_confirm      Boolean           @default(false)
   next_availability DateTime?
   created_at        DateTime          @default(now())
   updated_at        DateTime          @updatedAt
@@ -108,9 +122,11 @@ model Booking {
   notes                String?
   number_of_people     Int?
   payment_method_id    String?
+  payment_status       PaymentStatus @default(unpaid)
   cancellation_reason  String?
   cancellation_details String?
   canceled_at          DateTime?
+  provider_confirmed_at DateTime?
   created_at           DateTime      @default(now())
   updated_at           DateTime      @updatedAt
   user_id              Int
@@ -121,8 +137,14 @@ model Booking {
   user                 User          @relation(fields: [user_id], references: [id])
   time_slots           TimeSlot[]
   
+  // Payment relations
+  payments             Payment[]
+  
   // Messaging relations
   conversations        Conversation[]
+  
+  // Review relation
+  review               Review?
 
   @@map("bookings")
 }
@@ -137,9 +159,12 @@ model Review {
   updated_at DateTime @updatedAt
   user_id    Int?
   service_id Int
+  booking_id Int?     // Link review to specific booking
   service    Service  @relation(fields: [service_id], references: [id])
   user       User?    @relation(fields: [user_id], references: [id])
+  booking    Booking? @relation(fields: [booking_id], references: [id])
 
+  @@unique([booking_id]) // One review per booking
   @@map("reviews")
 }
 
@@ -374,6 +399,102 @@ model MessageReaction {
   @@map("message_reactions")
 }
 
+// ============================================================================
+// PAYMENT SYSTEM MODELS
+// ============================================================================
+
+model Payment {
+  id                    Int                @id @default(autoincrement())
+  amount                Int                // Amount in centavos
+  payment_method        PaymentMethodType
+  payment_type          PaymentType
+  status                PaymentStatus      @default(pending)
+  reference_number      String?            // For manual payments
+  proof_image_url       String?            // Screenshot of payment proof
+  admin_notes           String?            // Admin verification notes
+  verified_by           Int?               // Admin who verified the payment
+  verified_at           DateTime?
+  created_at            DateTime           @default(now())
+  updated_at            DateTime           @updatedAt
+  
+  // Relations
+  user_id               Int
+  booking_id            Int?               // For booking payments
+  wallet_transaction_id Int?               // For wallet reloads
+  
+  user                  User               @relation(fields: [user_id], references: [id])
+  booking               Booking?           @relation(fields: [booking_id], references: [id])
+  wallet_transaction    WalletTransaction? @relation(fields: [wallet_transaction_id], references: [id])
+  
+  @@map("payments")
+}
+
+model WalletTransaction {
+  id              Int                     @id @default(autoincrement())
+  amount          Int                     // Amount in centavos (positive for add, negative for deduct)
+  transaction_type WalletTransactionType
+  description     String
+  reference_id    String?                 // External reference (booking ID, payment ID, etc.)
+  balance_before  Int                     // Wallet balance before transaction
+  balance_after   Int                     // Wallet balance after transaction
+  created_at      DateTime                @default(now())
+  
+  // Relations
+  user_id         Int
+  user            User                    @relation(fields: [user_id], references: [id])
+  payments        Payment[]
+  
+  @@map("wallet_transactions")
+}
+
+model PaymentMethod {
+  id                Int       @id @default(autoincrement())
+  method_type       String    // "gcash", "bank_transfer"
+  name              String    // "GCash", "BPI", "BDO", etc.
+  account_number    String?   // Phone number for GCash, Account number for banks
+  account_name      String?   // Account holder name
+  qr_code_url       String?   // QR code image URL
+  instructions      String?   // Payment instructions
+  is_active         Boolean   @default(true)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  
+  @@map("payment_methods")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum PaymentStatus {
+  unpaid
+  pending         // Payment submitted, waiting for verification
+  paid           // Payment verified and confirmed
+  failed         // Payment failed or rejected
+  refunded       // Payment refunded
+}
+
+enum PaymentMethodType {
+  wallet         // Pay from user wallet
+  gcash          // Manual GCash payment
+  bank_transfer  // Manual bank transfer
+  credit_card    // Future: Credit card integration
+  paypal         // Future: PayPal integration
+}
+
+enum PaymentType {
+  booking        // Payment for booking
+  wallet_reload  // Wallet top-up
+  refund         // Refund payment
+}
+
+enum WalletTransactionType {
+  reload         // Adding money to wallet
+  payment        // Paying for booking
+  refund         // Refund to wallet
+  admin_adjustment // Admin adjustment (bonus, correction, etc.)
+}
+
 enum ConversationType {
   DIRECT    // 1-on-1 conversation
   GROUP     // Group conversation
@@ -393,6 +514,80 @@ enum MessageType {
   SYSTEM    // System-generated messages (booking status changes, etc.)
   BOOKING_REQUEST
   BOOKING_UPDATE
+}
+
+// =====================================
+// LEDGER-BASED WALLET SYSTEM
+// =====================================
+
+model WalletAccount {
+  id                 String   @id @default(cuid())
+  user_id            Int?     @unique // null for platform account
+  account_type       AccountType @default(USER)
+  available_cents    Int      @default(0) // cached balance for quick reads
+  pending_cents      Int      @default(0) // holds/uncleared amounts  
+  version            Int      @default(0) // optimistic locking
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  
+  // Relations
+  user               User?    @relation(fields: [user_id], references: [id])
+  entries_from       LedgerEntry[] @relation("FromAccount")
+  entries_to         LedgerEntry[] @relation("ToAccount")
+  
+  @@map("wallet_accounts")
+}
+
+model LedgerEntry {
+  id                 String   @id @default(cuid())
+  transfer_id        String   // groups the two sides of a transfer
+  from_account_id    String
+  to_account_id      String
+  amount_cents       Int      // positive integer (PHP 1.00 = 100 cents)
+  state              EntryState @default(pending)
+  occurred_at        DateTime @default(now())
+  memo               String?
+  idempotency_key    String   @unique // prevents duplicate transactions
+  reference_type     String?  // 'booking', 'reload', 'refund', etc.
+  reference_id       String?  // booking_id, payment_id, etc.
+  created_at         DateTime @default(now())
+  
+  // Relations
+  from_account       WalletAccount @relation("FromAccount", fields: [from_account_id], references: [id])
+  to_account         WalletAccount @relation("ToAccount", fields: [to_account_id], references: [id])
+  
+  @@map("ledger_entries")
+  @@index([transfer_id])
+  @@index([from_account_id])
+  @@index([to_account_id])
+  @@index([state])
+  @@index([occurred_at])
+}
+
+model WalletSnapshot {
+  id                 String   @id @default(cuid())
+  account_id         String
+  balance_cents      Int      // computed balance at snapshot time
+  pending_cents      Int      // pending balance at snapshot time
+  snapshot_date      DateTime // daily snapshots
+  entry_count        Int      // number of entries included in this snapshot
+  created_at         DateTime @default(now())
+  
+  @@map("wallet_snapshots")
+  @@unique([account_id, snapshot_date])
+  @@index([snapshot_date])
+}
+
+enum AccountType {
+  USER      // Individual user wallet
+  PLATFORM  // Platform account for fees, refunds
+  ESCROW    // Temporary holding account
+}
+
+enum EntryState {
+  pending   // Authorization/hold created but not settled
+  posted    // Confirmed and settled
+  reversed  // Reversed/refunded (creates new opposing entries)
 }
 
 

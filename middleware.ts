@@ -9,6 +9,8 @@ const PUBLIC_ROUTES = [
   '/',
   '/auth/login',
   '/auth/register',
+  '/provider/auth/login',
+  '/admin/auth/login',
   '/api/auth/login',
   '/api/auth/register',
 ];
@@ -41,9 +43,16 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('auth-token')?.value;
 
   if (!token) {
-    // Redirect to login for protected pages
+    // Redirect to appropriate login page based on route
     if (!pathname.startsWith('/api/')) {
-      const loginUrl = new URL('/auth/login', request.url);
+      let loginUrl;
+      if (pathname.startsWith('/provider')) {
+        loginUrl = new URL('/provider/auth/login', request.url);
+      } else if (pathname.startsWith('/admin')) {
+        loginUrl = new URL('/admin/auth/login', request.url);
+      } else {
+        loginUrl = new URL('/auth/login', request.url);
+      }
       loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
     }
@@ -57,14 +66,39 @@ export function middleware(request: NextRequest) {
 
   try {
     // Verify JWT token
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const role = decoded.role;
+    
+    // Enforce role-based access control
+    if (pathname.startsWith('/provider') || pathname.startsWith('/api/provider')) {
+      if (role !== 'PROVIDER') {
+        if (pathname.startsWith('/api/')) {
+          return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+        }
+        const loginUrl = new URL('/provider/auth/login', request.url);
+        loginUrl.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+    }
+    
+    // Enforce admin-only areas
+    if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
+      if (role !== 'ADMIN') {
+        if (pathname.startsWith('/api/')) {
+          return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+        }
+        const loginUrl = new URL('/admin/auth/login', request.url);
+        loginUrl.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+    }
     
     // Add user info to request headers for API routes
-    if (pathname.startsWith('/api/')) {
+  if (pathname.startsWith('/api/')) {
       const requestHeaders = new Headers(request.headers);
-      requestHeaders.set('user-id', (decoded as any).userId);
-      requestHeaders.set('user-email', (decoded as any).email);
-      requestHeaders.set('user-role', (decoded as any).role);
+      requestHeaders.set('user-id', decoded.userId);
+      requestHeaders.set('user-email', decoded.email);
+      requestHeaders.set('user-role', role);
       
       return NextResponse.next({
         request: {
@@ -75,9 +109,16 @@ export function middleware(request: NextRequest) {
     
     return NextResponse.next();
   } catch (error) {
-    // Invalid token
+    // Invalid token - redirect to appropriate login page
     if (!pathname.startsWith('/api/')) {
-      const loginUrl = new URL('/auth/login', request.url);
+      let loginUrl;
+      if (pathname.startsWith('/provider')) {
+        loginUrl = new URL('/provider/auth/login', request.url);
+      } else if (pathname.startsWith('/admin')) {
+        loginUrl = new URL('/admin/auth/login', request.url);
+      } else {
+        loginUrl = new URL('/auth/login', request.url);
+      }
       loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
     }

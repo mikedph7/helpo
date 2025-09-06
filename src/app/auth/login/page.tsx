@@ -59,7 +59,7 @@ export default function LoginPage() {
             <span className="text-3xl font-bold text-blue-600">helpo</span>
           </div>
           <CardTitle className="text-2xl text-center">Welcome back</CardTitle>
-          <p className="text-gray-600 text-center">Sign in to your account</p>
+          <p className="text-gray-600 text-center">Sign in to your customer account</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

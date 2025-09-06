@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const bookingId = searchParams.get('booking_id');
+  return requireAuth(async (req, user) => {
+    try {
+      const { searchParams } = new URL(req.url);
+      const bookingId = searchParams.get('booking_id');
     
     if (!bookingId) {
       return NextResponse.json(
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get booking with all related data
-    const booking = await prisma.booking.findUnique({
+  const booking = await prisma.booking.findUnique({
       where: {
         id: bookingIdInt
       },
@@ -53,6 +55,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Booking not found' },
         { status: 404 }
+      );
+    }
+
+    // Ownership check
+    if (booking.user_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Forbidden' },
+        { status: 403 }
       );
     }
 
@@ -102,13 +112,13 @@ export async function GET(request: NextRequest) {
       ] : []
     };
 
-    return NextResponse.json(bookingDetails);
-
-  } catch (error) {
-    console.error('Error fetching booking details:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch booking details' },
-      { status: 500 }
-    );
-  }
+      return NextResponse.json(bookingDetails);
+    } catch (error) {
+      console.error('Error fetching booking details:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch booking details' },
+        { status: 500 }
+      );
+    }
+  })(request);
 }
