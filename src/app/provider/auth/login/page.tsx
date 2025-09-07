@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { AuthApiClient } from "@/lib/auth-client";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
-export default function ProviderLoginPage() {
+function ProviderLoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const redirect = params.get("redirect") || "/provider";
@@ -131,5 +131,13 @@ export default function ProviderLoginPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ProviderLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-100 flex items-center justify-center">Loading...</div>}>
+      <ProviderLoginForm />
+    </Suspense>
   );
 }
