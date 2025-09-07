@@ -36,9 +36,15 @@ jobs:
         run: npx prisma migrate deploy --schema=./prisma/schema.prisma
 
       - name: Optional Seed (run if RUN_SEED secret == "true")
-        if: ${{ secrets.RUN_SEED == 'true' }}
+        # Avoid using secrets in the 'if' expression (can cause parser errors).
+        # Instead pass the secret into the step's env and check it in shell.
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RUN_SEED: ${{ secrets.RUN_SEED }}
         run: |
-          echo "RUN_SEED is true — running seed script"
-          node prisma/seed.js
+          if [ "${RUN_SEED}" = "true" ]; then
+            echo "RUN_SEED is true — running seed script"
+            node prisma/seed.js
+          else
+            echo "RUN_SEED not set to 'true' — skipping seed"
+          fi
