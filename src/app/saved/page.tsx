@@ -1,4 +1,6 @@
 import { createServerApiClient, type Favorite as ApiFavorite } from "@/lib/api-client";
+// This page uses server-only APIs (headers) and must be rendered dynamically.
+export const dynamic = 'force-dynamic';
 import SavedServicesList from './_components/saved-services-list';
 
 // Use the API types
