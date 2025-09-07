@@ -30,6 +30,42 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Debug DB connectivity (expanded)
+        run: |
+          set -e
+          host="db.heiahrhcogbgpnbxqbda.supabase.co"
+          echo "--- Runner info ---"
+          uname -a || true
+          echo "--- /etc/resolv.conf ---"
+          cat /etc/resolv.conf || true
+
+          echo "--- Resolve and DNS records for $host ---"
+          # Install dnsutils (for dig/nslookup), traceroute, netcat, and psql client
+          sudo apt-get update -y
+          sudo apt-get install -y dnsutils netcat-traditional traceroute postgresql-client || true
+
+          echo "nslookup output:" 
+          nslookup $host || true
+
+          echo "dig A records:" 
+          dig +short A $host || true
+          echo "dig AAAA records:" 
+          dig +short AAAA $host || true
+
+          echo "--- traceroute to $host ---"
+          traceroute -n $host || true
+
+          echo "--- TCP check (nc) to port 5432 ---"
+          nc -vz $host 5432 || echo "nc failed"
+
+          echo "--- pg_isready (using psql client) ---"
+          # pg_isready might not be available; try a simple psql connection test (will fail if auth wrong)
+          pg_isready -h $host -p 5432 -U postgres || true
+          echo "If pg_isready not available, attempting psql --version as a presence check"
+          psql --version || true
+
+          echo "Completed debug checks"
+
       - name: Run Prisma Migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
