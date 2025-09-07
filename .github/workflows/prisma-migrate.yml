@@ -1,0 +1,42 @@
+# Runs Prisma migrations on every push to `main`.
+# Requirements:
+# - Set repository secret `DATABASE_URL` with your production database connection string.
+# - Optional: set repository secret `RUN_SEED` to "true" to run `prisma/seed.js` after migrations.
+
+name: Run Prisma Migrations
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  migrate:
+    name: Deploy Prisma Migrations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run Prisma Migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy --schema=./prisma/schema.prisma
+
+      - name: Optional Seed (run if RUN_SEED secret == "true")
+        if: ${{ secrets.RUN_SEED == 'true' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "RUN_SEED is true — running seed script"
+          node prisma/seed.js
