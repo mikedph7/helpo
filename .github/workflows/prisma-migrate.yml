@@ -8,6 +8,8 @@ name: Run Prisma Migrations
 on:
   push:
     branches: [ main ]
+  # Allow manual runs from the Actions UI
+  workflow_dispatch: {}
 
 jobs:
   migrate:
