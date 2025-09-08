@@ -20,6 +20,7 @@ const PUBLIC_ROUTES = [
   '/api/dev/services',
   '/saved',
   '/messages',
+  '/api/dev/favorites',
 ];
 
 // Define API routes that require authentication
