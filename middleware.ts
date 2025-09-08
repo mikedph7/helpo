@@ -18,6 +18,8 @@ const PUBLIC_ROUTES = [
   '/api/dbcheck',
   '/services',
   '/api/dev/services',
+  '/saved',
+  '/messages',
 ];
 
 // Define API routes that require authentication
