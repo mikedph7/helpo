@@ -24,6 +24,7 @@ const PUBLIC_ROUTES = [
   // Public API endpoints
   '/api/auth/login',
   '/api/auth/register',
+  '/api/auth/me',
   '/api/auth-debug',
   '/api/env-check',
   '/api/check-env',
@@ -48,7 +49,6 @@ const PUBLIC_ROUTES = [
 
 // Define API routes that require authentication
 const PROTECTED_API_ROUTES = [
-  '/api/auth/me',
   '/api/auth/logout',
   '/api/dev/bookings',
   '/api/dev/users',
