@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClientApiClient, type HelpoCategory, type Service } from '@/lib/api-client';
 import ServicesClient from './_components/services-client';
+import { LoadingPage, LoadingGrid } from '@/components/ui/loading';
 
 export default function ServicesPage() {
   const searchParams = useSearchParams();
@@ -56,6 +57,7 @@ export default function ServicesPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 md:px-6 py-6 md:py-8">
+          {/* Hero Section */}
           <div className="text-center mb-8">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
               Find the right help, right away.
@@ -64,10 +66,15 @@ export default function ServicesPage() {
               Connect with trusted professionals for home care, repairs, pet services, and learning
             </p>
           </div>
-          <div className="text-center py-8">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading services...</p>
-          </div>
+          
+          {/* Loading State */}
+          <LoadingPage 
+            title="Loading Services" 
+            message="Finding the best services for you..."
+          />
+          
+          {/* Skeleton Grid */}
+          <LoadingGrid count={8} className="mt-8" />
         </div>
       </div>
     );

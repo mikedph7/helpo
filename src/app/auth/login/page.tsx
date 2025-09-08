@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LoadingButton } from "@/components/ui/loading";
 import { AuthApiClient } from "@/lib/auth-client";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
@@ -110,15 +111,15 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Button
+            <LoadingButton
               type="submit"
               className="w-full"
-              disabled={isLoading}
+              size="lg"
+              isLoading={isLoading}
+              disabled={!formData.email || !formData.password}
             >
               {isLoading ? "Signing in..." : "Sign in"}
-            </Button>
-
-            <div className="text-center">
+            </LoadingButton>            <div className="text-center">
               <Link 
                 href="/auth/register" 
                 className="text-sm text-blue-600 hover:text-blue-800"

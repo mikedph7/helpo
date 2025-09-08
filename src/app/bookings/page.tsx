@@ -5,6 +5,7 @@ import { Search, Filter, MessageCircle, MapPin, Clock, Star } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { LoadingPage, LoadingCard } from "@/components/ui/loading";
 import { NewBookingStatus, NewPaymentStatus, getNewBookingStatus, getNewPaymentStatus, BookingStatusConfig } from "@/lib/status-system";
 import Image from "next/image";
 import Link from "next/link";

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -137,7 +138,10 @@ export default function Navbar() {
             
             {/* User Menu */}
             {isLoading ? (
-              <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
+              <div className="flex items-center gap-2">
+                <LoadingSpinner size="sm" />
+                <span className="text-sm text-gray-500">Loading...</span>
+              </div>
             ) : isAuthenticated && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

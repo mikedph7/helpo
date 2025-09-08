@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClientApiClient, type Favorite as ApiFavorite } from "@/lib/api-client";
 import SavedServicesList from './_components/saved-services-list';
+import { LoadingPage, LoadingGrid } from '@/components/ui/loading';
 
 // Use the API types
 type Favorite = ApiFavorite;
@@ -31,10 +32,17 @@ export default function SavedPage() {
   if (isLoading) {
     return (
       <div className="container mx-auto px-3 md:px-6 py-4 md:py-6">
-        <div className="text-center py-8">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading saved services...</p>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Saved Services</h1>
+          <p className="text-gray-600">Your favorite services and providers</p>
         </div>
+        
+        <LoadingPage 
+          title="Loading Saved Services" 
+          message="Fetching your saved items..."
+        />
+        
+        <LoadingGrid count={4} className="mt-8" />
       </div>
     );
   }
