@@ -1,45 +1,61 @@
-// SERVER COMPONENT
-import { createServerApiClient, type HelpoCategory } from '@/lib/api-client';
+"use client";
+
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { createClientApiClient, type HelpoCategory, type Service } from '@/lib/api-client';
 import ServicesClient from './_components/services-client';
 
-type PageProps = { 
-  searchParams?: Promise<{ 
-    q?: string; 
-    category?: string;
-    location?: string;
-    date?: string;
-    time?: string;
-    sortBy?: string;
-  }> 
-};
-
-export default async function ServicesPage({ searchParams }: PageProps) {
-  const apiClient = await createServerApiClient();
-  const params = await searchParams;
+export default function ServicesPage() {
+  const searchParams = useSearchParams();
+  const [services, setServices] = useState<Service[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  try {
-    // Build API parameters
-    const apiParams: any = {};
-    if (params?.q) apiParams.q = params.q;
-    if (params?.category) apiParams.category = params.category as HelpoCategory;
-    if (params?.location) apiParams.location = params.location;
-    if (params?.date) apiParams.date = params.date;
-    if (params?.time) apiParams.time = params.time;
-    if (params?.sortBy) apiParams.sortBy = params.sortBy;
-    
-    // Fetch services using the API client
-    const { services } = await apiClient.getServices(apiParams);
-  
-    const initialQ = (params?.q ?? '').toString();
-    const initialCategory = (params?.category ?? '').toString();
-    const initialLocation = (params?.location ?? '').toString();
-    const initialDate = (params?.date ?? '').toString();
-    const initialTime = (params?.time ?? '').toString();
+  useEffect(() => {
+    const fetchServices = async () => {
+      setIsLoading(true);
+      try {
+        const apiClient = createClientApiClient();
+        
+        // Build API parameters from search params
+        const apiParams: any = {};
+        const q = searchParams.get('q');
+        const category = searchParams.get('category');
+        const location = searchParams.get('location');
+        const date = searchParams.get('date');
+        const time = searchParams.get('time');
+        const sortBy = searchParams.get('sortBy');
+        
+        if (q) apiParams.q = q;
+        if (category) apiParams.category = category as HelpoCategory;
+        if (location) apiParams.location = location;
+        if (date) apiParams.date = date;
+        if (time) apiParams.time = time;
+        if (sortBy) apiParams.sortBy = sortBy;
+        
+        // Fetch services using the API client
+        const { services } = await apiClient.getServices(apiParams);
+        setServices(services);
+      } catch (error) {
+        console.error('Failed to load services:', error);
+        setServices([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
+    fetchServices();
+  }, [searchParams]);
+
+  const initialQ = searchParams.get('q') || '';
+  const initialCategory = searchParams.get('category') || '';
+  const initialLocation = searchParams.get('location') || '';
+  const initialDate = searchParams.get('date') || '';
+  const initialTime = searchParams.get('time') || '';
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 md:px-6 py-6 md:py-8">
-          {/* Hero Section */}
           <div className="text-center mb-8">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
               Find the right help, right away.
@@ -48,27 +64,37 @@ export default async function ServicesPage({ searchParams }: PageProps) {
               Connect with trusted professionals for home care, repairs, pet services, and learning
             </p>
           </div>
-
-          <ServicesClient
-            services={services}
-            initialQ={initialQ}
-            initialCategory={initialCategory}
-            initialLocation={initialLocation}
-            initialDate={initialDate}
-            initialTime={initialTime}
-          />
-        </div>
-      </div>
-    );
-  } catch (error) {
-    console.error('Failed to load services:', error);
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Unable to load services</h1>
-          <p className="text-gray-600">Please try again later.</p>
+          <div className="text-center py-8">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading services...</p>
+          </div>
         </div>
       </div>
     );
   }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 md:px-6 py-6 md:py-8">
+        {/* Hero Section */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+            Find the right help, right away.
+          </h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Connect with trusted professionals for home care, repairs, pet services, and learning
+          </p>
+        </div>
+
+        <ServicesClient
+          services={services}
+          initialQ={initialQ}
+          initialCategory={initialCategory}
+          initialLocation={initialLocation}
+          initialDate={initialDate}
+          initialTime={initialTime}
+        />
+      </div>
+    </div>
+  );
 }
