@@ -16,6 +16,7 @@ const PUBLIC_ROUTES = [
   '/api/auth-debug',
   '/api/env-check',
   '/api/dbcheck',
+  '/services',
 ];
 
 // Define API routes that require authentication
