@@ -6,28 +6,55 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Define public routes that don't require authentication
 const PUBLIC_ROUTES = [
+  // Landing and auth pages
   '/',
   '/auth/login',
   '/auth/register',
   '/provider/auth/login',
   '/admin/auth/login',
+  
+  // Public content pages
+  '/services',
+  '/providers',
+  '/saved',
+  '/messages',
+  '/bookings',
+  
+  // Public API endpoints
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth-debug',
   '/api/env-check',
   '/api/dbcheck',
-  '/services',
   '/api/dev/services',
-  '/saved',
-  '/messages',
+  '/api/dev/providers',
   '/api/dev/favorites',
+  '/api/dev/reviews',
+  '/api/dev/search',
+  '/api/dev/locations',
+  
+  // Static and utility routes
+  '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml',
 ];
 
 // Define API routes that require authentication
 const PROTECTED_API_ROUTES = [
   '/api/auth/me',
   '/api/auth/logout',
+  '/api/dev/bookings',
+  '/api/dev/users',
+  '/api/dev/payments',
+  '/api/dev/wallet',
+  '/api/dev/profile',
 ];
+
+// Pages that require authentication (not in PUBLIC_ROUTES):
+// - /profile (user profile management)
+// - /provider/* (provider dashboard, except login)
+// - /admin/* (admin dashboard, except login)
+// Note: /bookings is public but shows different content based on auth status
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
