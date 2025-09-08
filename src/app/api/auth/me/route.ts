@@ -7,11 +7,11 @@ export const runtime = 'nodejs';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export async function GET(request: NextRequest) {
+  const token = request.cookies.get('auth-token')?.value || 
+                request.headers.get('authorization')?.replace('Bearer ', '');
+
   try {
     // Get token from cookie or Authorization header
-    const token = request.cookies.get('auth-token')?.value || 
-                  request.headers.get('authorization')?.replace('Bearer ', '');
-
     console.log('Auth/me: Token received:', !!token);
     console.log('Auth/me: JWT_SECRET available:', !!JWT_SECRET);
 
@@ -55,10 +55,17 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Get user error:', error);
+    console.error('Error type:', error?.constructor?.name);
+    console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
     
     if (error instanceof jwt.JsonWebTokenError) {
+      console.error('JWT Error details:', {
+        name: error.name,
+        message: error.message,
+        tokenReceived: !!token
+      });
       return NextResponse.json(
-        { error: 'Invalid token' },
+        { error: 'Invalid token', details: error.message },
         { status: 401 }
       );
     }
