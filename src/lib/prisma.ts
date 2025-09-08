@@ -4,23 +4,21 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL
-    }
-  },
-  // Handle serverless prepared statement conflicts
-  errorFormat: 'minimal',
-})
+// Create a new instance for each serverless function in production
+// to avoid prepared statement conflicts
+export const prisma = process.env.NODE_ENV === 'production' 
+  ? new PrismaClient({
+      log: ['error'],
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL
+        }
+      }
+    })
+  : globalForPrisma.prisma ?? new PrismaClient({
+      log: ['query', 'error', 'warn'],
+    })
 
-// Graceful shutdown handling
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma
-} else {
-  // In production, handle connection cleanup
-  process.on('beforeExit', async () => {
-    await prisma.$disconnect()
-  })
 }
