@@ -1,6 +1,8 @@
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = 'nodejs';
+
 interface TimeSlot {
   id: string;
   label: string;

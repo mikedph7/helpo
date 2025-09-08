@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 
+export const runtime = 'nodejs';
+
 export const POST = requireRole('PROVIDER', async (req: NextRequest, user) => {
   try {
     // Find provider record

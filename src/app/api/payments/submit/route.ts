@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { PaymentStatus, PaymentType } from '@prisma/client';
 import { WalletService } from '@/lib/wallet-service';
 
+export const runtime = 'nodejs';
+
 // POST /api/payments/submit - Submit payment proof for manual payment
 export async function POST(request: NextRequest) {
   try {

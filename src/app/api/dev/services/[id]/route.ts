@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const runtime = 'nodejs';
+
 type Params = { params: { id: string } };
 
 export async function GET(_req: Request, { params }: Params) {

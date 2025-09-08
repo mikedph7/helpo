@@ -1,6 +1,8 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const runtime = 'nodejs';
+
 // Function to get all location variations using database (type-safe)
 async function getLocationSearchTerms(searchLocation: string): Promise<string[]> {
   const normalizedLocation = searchLocation.toLowerCase().trim();

@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { PaymentStatus, PaymentType, PaymentMethodType, BookingStatus } from '@prisma/client';
 import { NewBookingStatus, NewPaymentStatus, BookingStatusMapping, PaymentStatusMapping } from '@/lib/status-system';
 
+export const runtime = 'nodejs';
+
 // POST /api/payments/manual-prepay
 // Stores a manual payment proof and creates booking with pending status
 export async function POST(request: NextRequest) {

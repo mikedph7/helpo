@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { WalletService } from "@/lib/wallet-service";
 
+export const runtime = 'nodejs';
+
 export const POST = requireRole('PROVIDER', async (req: NextRequest, user) => {
   try {
     // Find provider record

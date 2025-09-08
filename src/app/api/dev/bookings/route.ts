@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   return requireAuth(async (req, user) => {
     try {

@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth';
 import { PaymentStatus, PaymentType, PaymentMethodType } from '@prisma/client';
 
+export const runtime = 'nodejs';
+
 // POST /api/payments/resubmit - Resubmit payment proof after rejection
 export async function POST(request: NextRequest) {
   return requireAuth(async (_req, user) => {

@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { WalletService } from '@/lib/wallet-service';
 import { PaymentMethodType, PaymentType, PaymentStatus } from '@prisma/client';
 
+export const runtime = 'nodejs';
+
 // POST /api/payments/wallet-prepay
 // Charges user's wallet for a future booking and returns a paid payment_id to be used when creating the booking
 export async function POST(request: NextRequest) {

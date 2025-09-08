@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { writeFile } from 'fs/promises';
 import path from 'path';
 
+export const runtime = 'nodejs';
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // POST /api/messages/upload-attachment

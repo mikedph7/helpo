@@ -9,46 +9,30 @@ datasource db {
 }
 
 model User {
-  id           Int        @id @default(autoincrement())
-  email        String     @unique
-  password_hash String?   // For email/password login
-  name         String?
-  avatar       String?
-  role         Role       @default(USER)
-  email_verified Boolean  @default(false)
-  phone        String?    @unique
-  phone_verified Boolean  @default(false)
-  created_at   DateTime   @default(now())
-  updated_at   DateTime   @updatedAt
-  
-  // Relations
-  bookings     Booking[]
-  favorites    Favorite[]
-  reviews      Review[]
-  sessions     Session[]  // For session management
-  
-  // Payment relations
-  payments     Payment[]
+  email               String                    @unique
+  name                String?
+  avatar              String?
+  created_at          DateTime                  @default(now())
+  updated_at          DateTime                  @updatedAt
+  id                  Int                       @id @default(autoincrement())
+  email_verified      Boolean                   @default(false)
+  password_hash       String?
+  phone               String?                   @unique
+  phone_verified      Boolean                   @default(false)
+  role                Role                      @default(USER)
+  bookings            Booking[]
+  conversations       ConversationParticipant[]
+  favorites           Favorite[]
+  message_reactions   MessageReaction[]
+  sent_messages       Message[]
+  payments            Payment[]
+  provider            Provider?
+  reviews             Review[]
+  sessions            Session[]
+  wallet_account      WalletAccount?
   wallet_transactions WalletTransaction[]
-  
-  // Messaging relations
-  conversations           ConversationParticipant[]
-  sent_messages           Message[]
-  message_reactions       MessageReaction[]
-  
-  // Wallet relations
-  wallet_account          WalletAccount?
-
-  // Provider relation (if this user is a provider account)
-  provider                Provider?
 
   @@map("users")
-}
-
-enum Role {
-  USER
-  PROVIDER
-  ADMIN
 }
 
 model Session {
@@ -57,42 +41,38 @@ model Session {
   token      String   @unique
   expires_at DateTime
   created_at DateTime @default(now())
-  
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
   @@map("sessions")
 }
 
 model Provider {
-  id               Int                 @id @default(autoincrement())
-  name             String
-  photo_url        String?
-  average_rating   Float?
-  rating_count     Int?
-  verified         Boolean             @default(false)
-  bio              String?
-  location         String?
-  created_at       DateTime            @default(now())
-  updated_at       DateTime            @updatedAt
-  user_id          Int?                // Link to the user account that manages this provider
-  user             User?               @relation(fields: [user_id], references: [id], onDelete: SetNull)
-  bookings         Booking[]
-  services         Service[]
-  coverage_cities  ProviderCoverage[]
-  schedules        ProviderSchedule[]
-  time_slots       TimeSlot[]
+  photo_url       String?
+  rating_count    Int?
+  verified        Boolean            @default(false)
+  bio             String?
+  location        String?
+  created_at      DateTime           @default(now())
+  updated_at      DateTime           @updatedAt
+  id              Int                @id @default(autoincrement())
+  average_rating  Float?
+  name            String
+  user_id         Int?               @unique
+  bookings        Booking[]
+  coverage_cities ProviderCoverage[]
+  schedules       ProviderSchedule[]
+  user            User?              @relation(fields: [user_id], references: [id])
+  services        Service[]
+  time_slots      TimeSlot[]
 
   @@map("providers")
-  @@unique([user_id])
 }
 
 model Service {
-  id                Int               @id @default(autoincrement())
   name              String
   category          HelpoCategory
   description       String
   price_from        Int?
-  duration_minutes  Int?
   tags              String[]
   images            String[]
   what_included     String[]
@@ -100,78 +80,73 @@ model Service {
   pricing_details   Json?
   top_rated         Boolean           @default(false)
   verified          Boolean           @default(false)
-  auto_confirm      Boolean           @default(false)
   next_availability DateTime?
   created_at        DateTime          @default(now())
   updated_at        DateTime          @updatedAt
+  id                Int               @id @default(autoincrement())
   provider_id       Int?
+  duration_minutes  Int?
+  auto_confirm      Boolean           @default(false)
   bookings          Booking[]
   favorites         Favorite[]
   reviews           Review[]
-  provider          Provider?         @relation(fields: [provider_id], references: [id])
   coverage_cities   ServiceCoverage[]
+  provider          Provider?         @relation(fields: [provider_id], references: [id])
 
   @@map("services")
 }
 
 model Booking {
-  id                   Int           @id @default(autoincrement())
-  scheduled_at         DateTime
-  location             String?
-  status               BookingStatus @default(pending)
-  total_price          Int
-  notes                String?
-  number_of_people     Int?
-  payment_method_id    String?
-  payment_status       PaymentStatus @default(unpaid)
-  cancellation_reason  String?
-  cancellation_details String?
-  canceled_at          DateTime?
+  scheduled_at          DateTime
+  location              String?
+  status                BookingStatus  @default(pending)
+  total_price           Int
+  notes                 String?
+  number_of_people      Int?
+  payment_method_id     String?
+  created_at            DateTime       @default(now())
+  updated_at            DateTime       @updatedAt
+  id                    Int            @id @default(autoincrement())
+  user_id               Int
+  service_id            Int
+  provider_id           Int
+  canceled_at           DateTime?
+  cancellation_details  String?
+  cancellation_reason   String?
+  payment_status        PaymentStatus  @default(unpaid)
   provider_confirmed_at DateTime?
-  created_at           DateTime      @default(now())
-  updated_at           DateTime      @updatedAt
-  user_id              Int
-  service_id           Int
-  provider_id          Int
-  provider             Provider      @relation(fields: [provider_id], references: [id])
-  service              Service       @relation(fields: [service_id], references: [id])
-  user                 User          @relation(fields: [user_id], references: [id])
-  time_slots           TimeSlot[]
-  
-  // Payment relations
-  payments             Payment[]
-  
-  // Messaging relations
-  conversations        Conversation[]
-  
-  // Review relation
-  review               Review?
+  provider              Provider       @relation(fields: [provider_id], references: [id])
+  service               Service        @relation(fields: [service_id], references: [id])
+  user                  User           @relation(fields: [user_id], references: [id])
+  conversations         Conversation[]
+  payments              Payment[]
+  review                Review?
+  time_slots            TimeSlot[]
 
   @@map("bookings")
 }
 
 model Review {
-  id         Int      @id @default(autoincrement())
-  name       String
-  avatar_url String?
   rating     Int
   comment    String
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+  id         Int      @id @default(autoincrement())
   user_id    Int?
   service_id Int
-  booking_id Int?     // Link review to specific booking
+  avatar_url String?
+  name       String
+  booking_id Int?     @unique
+  booking    Booking? @relation(fields: [booking_id], references: [id])
   service    Service  @relation(fields: [service_id], references: [id])
   user       User?    @relation(fields: [user_id], references: [id])
-  booking    Booking? @relation(fields: [booking_id], references: [id])
 
-  @@unique([booking_id]) // One review per booking
   @@map("reviews")
 }
 
 model Favorite {
-  id         Int      @id @default(autoincrement())
   created_at DateTime @default(now())
+  id         Int      @id @default(autoincrement())
   user_id    Int
   service_id Int
   service    Service  @relation(fields: [service_id], references: [id])
@@ -182,42 +157,40 @@ model Favorite {
 }
 
 model SearchLog {
-  id            Int      @id @default(autoincrement())
   query         String?
   category      String?
   location      String?
   results_count Int
   user_clicked  Boolean  @default(false)
   created_at    DateTime @default(now())
+  id            Int      @id @default(autoincrement())
 
   @@map("search_logs")
 }
 
 model City {
-  id                 Int                 @id @default(autoincrement())
-  name               String              @unique
-  region             String              // NCR, Region I, etc.
-  province           String?
-  created_at         DateTime            @default(now())
-  updated_at         DateTime            @updatedAt
-  provider_coverage  ProviderCoverage[]
-  service_coverage   ServiceCoverage[]
-  areas              Area[]              // Areas within this city
+  id                Int                @id @default(autoincrement())
+  name              String             @unique
+  region            String
+  province          String?
+  created_at        DateTime           @default(now())
+  updated_at        DateTime           @updatedAt
+  areas             Area[]
+  provider_coverage ProviderCoverage[]
+  service_coverage  ServiceCoverage[]
 
   @@map("cities")
 }
 
-// Areas/Districts within cities (BGC, Ortigas, Alabang, etc.)
 model Area {
-  id           Int      @id @default(autoincrement())
-  name         String   @unique
-  city_id      Int
-  aliases      String[] // Alternative names: ["BGC", "Bonifacio Global City", "Fort"]
-  is_active    Boolean  @default(true)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-  
-  city         City     @relation(fields: [city_id], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  city_id    Int
+  aliases    String[]
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  city       City     @relation(fields: [city_id], references: [id], onDelete: Cascade)
 
   @@map("areas")
 }
@@ -227,23 +200,259 @@ model ProviderCoverage {
   provider_id Int
   city_id     Int
   created_at  DateTime @default(now())
-  provider    Provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
   city        City     @relation(fields: [city_id], references: [id], onDelete: Cascade)
+  provider    Provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
 
   @@unique([provider_id, city_id])
   @@map("provider_coverage")
 }
 
 model ServiceCoverage {
-  id         Int     @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   service_id Int
   city_id    Int
   created_at DateTime @default(now())
-  service    Service @relation(fields: [service_id], references: [id], onDelete: Cascade)
-  city       City    @relation(fields: [city_id], references: [id], onDelete: Cascade)
+  city       City     @relation(fields: [city_id], references: [id], onDelete: Cascade)
+  service    Service  @relation(fields: [service_id], references: [id], onDelete: Cascade)
 
   @@unique([service_id, city_id])
   @@map("service_coverage")
+}
+
+model ProviderSchedule {
+  id           Int      @id @default(autoincrement())
+  provider_id  Int
+  day_of_week  Int
+  start_time   String
+  end_time     String
+  is_available Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  provider     Provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
+
+  @@unique([provider_id, day_of_week])
+  @@map("provider_schedules")
+}
+
+model TimeSlot {
+  id           Int      @id @default(autoincrement())
+  provider_id  Int
+  date         DateTime @db.Date
+  start_time   String
+  end_time     String
+  is_available Boolean  @default(true)
+  is_booked    Boolean  @default(false)
+  booking_id   Int?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  booking      Booking? @relation(fields: [booking_id], references: [id])
+  provider     Provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
+
+  @@unique([provider_id, date, start_time])
+  @@index([provider_id, date])
+  @@index([date, is_available])
+  @@map("time_slots")
+}
+
+model Conversation {
+  id              Int                       @id @default(autoincrement())
+  type            ConversationType          @default(DIRECT)
+  title           String?
+  booking_id      Int?
+  last_message_at DateTime                  @default(now())
+  created_at      DateTime                  @default(now())
+  updated_at      DateTime                  @updatedAt
+  participants    ConversationParticipant[]
+  booking         Booking?                  @relation(fields: [booking_id], references: [id])
+  messages        Message[]
+
+  @@index([booking_id])
+  @@index([last_message_at])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id              Int             @id @default(autoincrement())
+  conversation_id Int
+  user_id         Int
+  role            ParticipantRole @default(MEMBER)
+  joined_at       DateTime        @default(now())
+  last_read_at    DateTime?
+  is_muted        Boolean         @default(false)
+  is_archived     Boolean         @default(false)
+  conversation    Conversation    @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([conversation_id, user_id])
+  @@index([user_id])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id              Int                 @id @default(autoincrement())
+  conversation_id Int
+  sender_id       Int
+  content         String?
+  message_type    MessageType         @default(TEXT)
+  reply_to_id     Int?
+  edited_at       DateTime?
+  deleted_at      DateTime?
+  created_at      DateTime            @default(now())
+  updated_at      DateTime            @updatedAt
+  metadata        Json?
+  attachments     MessageAttachment[]
+  reactions       MessageReaction[]
+  conversation    Conversation        @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  reply_to        Message?            @relation("MessageReplies", fields: [reply_to_id], references: [id])
+  replies         Message[]           @relation("MessageReplies")
+  sender          User                @relation(fields: [sender_id], references: [id], onDelete: Cascade)
+
+  @@index([conversation_id, created_at])
+  @@index([sender_id])
+  @@index([reply_to_id])
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id         Int      @id @default(autoincrement())
+  message_id Int
+  filename   String
+  file_url   String
+  file_type  String
+  file_size  Int
+  created_at DateTime @default(now())
+  message    Message  @relation(fields: [message_id], references: [id], onDelete: Cascade)
+
+  @@index([message_id])
+  @@map("message_attachments")
+}
+
+model MessageReaction {
+  id         Int      @id @default(autoincrement())
+  message_id Int
+  user_id    Int
+  emoji      String
+  created_at DateTime @default(now())
+  message    Message  @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([message_id, user_id, emoji])
+  @@index([message_id])
+  @@map("message_reactions")
+}
+
+model Payment {
+  id                    Int                @id @default(autoincrement())
+  amount                Int
+  payment_method        PaymentMethodType
+  payment_type          PaymentType
+  status                PaymentStatus      @default(pending)
+  reference_number      String?
+  proof_image_url       String?
+  admin_notes           String?
+  verified_by           Int?
+  verified_at           DateTime?
+  created_at            DateTime           @default(now())
+  updated_at            DateTime           @updatedAt
+  user_id               Int
+  booking_id            Int?
+  wallet_transaction_id Int?
+  booking               Booking?           @relation(fields: [booking_id], references: [id])
+  user                  User               @relation(fields: [user_id], references: [id])
+  wallet_transaction    WalletTransaction? @relation(fields: [wallet_transaction_id], references: [id])
+
+  @@map("payments")
+}
+
+model WalletTransaction {
+  id               Int                   @id @default(autoincrement())
+  amount           Int
+  transaction_type WalletTransactionType
+  description      String
+  reference_id     String?
+  balance_before   Int
+  balance_after    Int
+  created_at       DateTime              @default(now())
+  user_id          Int
+  payments         Payment[]
+  user             User                  @relation(fields: [user_id], references: [id])
+
+  @@map("wallet_transactions")
+}
+
+model PaymentMethod {
+  id             Int      @id @default(autoincrement())
+  method_type    String
+  name           String
+  account_number String?
+  account_name   String?
+  qr_code_url    String?
+  instructions   String?
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  @@map("payment_methods")
+}
+
+model WalletAccount {
+  id              String        @id @default(cuid())
+  user_id         Int?          @unique
+  account_type    AccountType   @default(USER)
+  available_cents Int           @default(0)
+  pending_cents   Int           @default(0)
+  version         Int           @default(0)
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+  entries_from    LedgerEntry[] @relation("FromAccount")
+  entries_to      LedgerEntry[] @relation("ToAccount")
+  user            User?         @relation(fields: [user_id], references: [id])
+
+  @@map("wallet_accounts")
+}
+
+model LedgerEntry {
+  id              String        @id @default(cuid())
+  transfer_id     String
+  from_account_id String
+  to_account_id   String
+  amount_cents    Int
+  state           EntryState    @default(pending)
+  occurred_at     DateTime      @default(now())
+  memo            String?
+  idempotency_key String        @unique
+  reference_type  String?
+  reference_id    String?
+  created_at      DateTime      @default(now())
+  from_account    WalletAccount @relation("FromAccount", fields: [from_account_id], references: [id])
+  to_account      WalletAccount @relation("ToAccount", fields: [to_account_id], references: [id])
+
+  @@index([transfer_id])
+  @@index([from_account_id])
+  @@index([to_account_id])
+  @@index([state])
+  @@index([occurred_at])
+  @@map("ledger_entries")
+}
+
+model WalletSnapshot {
+  id            String   @id @default(cuid())
+  account_id    String
+  balance_cents Int
+  pending_cents Int
+  snapshot_date DateTime
+  entry_count   Int
+  created_at    DateTime @default(now())
+
+  @@unique([account_id, snapshot_date])
+  @@index([snapshot_date])
+  @@map("wallet_snapshots")
+}
+
+enum Role {
+  USER
+  PROVIDER
+  ADMIN
 }
 
 enum HelpoCategory {
@@ -260,246 +469,39 @@ enum BookingStatus {
   canceled
 }
 
-// Provider working schedule (weekly recurring hours)
-model ProviderSchedule {
-  id           Int     @id @default(autoincrement())
-  provider_id  Int
-  day_of_week  Int     // 0=Sunday, 1=Monday, ..., 6=Saturday
-  start_time   String  // "09:00"
-  end_time     String  // "17:00"
-  is_available Boolean @default(true)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-  
-  provider Provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
-  
-  @@unique([provider_id, day_of_week])
-  @@map("provider_schedules")
-}
-
-// Individual time slots for specific dates
-model TimeSlot {
-  id          Int      @id @default(autoincrement())
-  provider_id Int
-  date        DateTime @db.Date
-  start_time  String   // "09:00"
-  end_time    String   // "10:00"
-  is_available Boolean @default(true)
-  is_booked   Boolean @default(false)
-  booking_id  Int?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  
-  provider Provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
-  booking  Booking?  @relation(fields: [booking_id], references: [id], onDelete: SetNull)
-  
-  @@unique([provider_id, date, start_time])
-  @@index([provider_id, date])
-  @@index([date, is_available])
-  @@map("time_slots")
-}
-
-// === MESSAGING SYSTEM ===
-
-model Conversation {
-  id              Int             @id @default(autoincrement())
-  type            ConversationType @default(DIRECT)
-  title           String?         // Optional title for group chats
-  booking_id      Int?            // Link to booking if conversation is about a booking
-  last_message_at DateTime        @default(now())
-  created_at      DateTime        @default(now())
-  updated_at      DateTime        @updatedAt
-  
-  // Relations
-  participants    ConversationParticipant[]
-  messages        Message[]
-  booking         Booking?        @relation(fields: [booking_id], references: [id], onDelete: SetNull)
-  
-  @@index([booking_id])
-  @@index([last_message_at])
-  @@map("conversations")
-}
-
-model ConversationParticipant {
-  id              Int             @id @default(autoincrement())
-  conversation_id Int
-  user_id         Int
-  role            ParticipantRole @default(MEMBER)
-  joined_at       DateTime        @default(now())
-  last_read_at    DateTime?       // For read receipts
-  is_muted        Boolean         @default(false)
-  is_archived     Boolean         @default(false)
-  
-  // Relations
-  conversation    Conversation    @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
-  user            User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
-  @@unique([conversation_id, user_id])
-  @@index([user_id])
-  @@map("conversation_participants")
-}
-
-model Message {
-  id              Int             @id @default(autoincrement())
-  conversation_id Int
-  sender_id       Int
-  content         String?         // Text content
-  message_type    MessageType     @default(TEXT)
-  reply_to_id     Int?            // For threaded replies
-  edited_at       DateTime?
-  deleted_at      DateTime?
-  created_at      DateTime        @default(now())
-  updated_at      DateTime        @updatedAt
-  
-  // Metadata for different message types
-  metadata        Json?           // Store file info, system message data, etc.
-  
-  // Relations
-  conversation    Conversation    @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
-  sender          User            @relation(fields: [sender_id], references: [id], onDelete: Cascade)
-  reply_to        Message?        @relation("MessageReplies", fields: [reply_to_id], references: [id], onDelete: SetNull)
-  replies         Message[]       @relation("MessageReplies")
-  attachments     MessageAttachment[]
-  reactions       MessageReaction[]
-  
-  @@index([conversation_id, created_at])
-  @@index([sender_id])
-  @@index([reply_to_id])
-  @@map("messages")
-}
-
-model MessageAttachment {
-  id          Int      @id @default(autoincrement())
-  message_id  Int
-  filename    String
-  file_url    String
-  file_type   String   // image/jpeg, application/pdf, etc.
-  file_size   Int      // in bytes
-  created_at  DateTime @default(now())
-  
-  // Relations
-  message     Message  @relation(fields: [message_id], references: [id], onDelete: Cascade)
-  
-  @@index([message_id])
-  @@map("message_attachments")
-}
-
-model MessageReaction {
-  id         Int      @id @default(autoincrement())
-  message_id Int
-  user_id    Int
-  emoji      String   // Unicode emoji
-  created_at DateTime @default(now())
-  
-  // Relations
-  message    Message  @relation(fields: [message_id], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
-  @@unique([message_id, user_id, emoji])
-  @@index([message_id])
-  @@map("message_reactions")
-}
-
-// ============================================================================
-// PAYMENT SYSTEM MODELS
-// ============================================================================
-
-model Payment {
-  id                    Int                @id @default(autoincrement())
-  amount                Int                // Amount in centavos
-  payment_method        PaymentMethodType
-  payment_type          PaymentType
-  status                PaymentStatus      @default(pending)
-  reference_number      String?            // For manual payments
-  proof_image_url       String?            // Screenshot of payment proof
-  admin_notes           String?            // Admin verification notes
-  verified_by           Int?               // Admin who verified the payment
-  verified_at           DateTime?
-  created_at            DateTime           @default(now())
-  updated_at            DateTime           @updatedAt
-  
-  // Relations
-  user_id               Int
-  booking_id            Int?               // For booking payments
-  wallet_transaction_id Int?               // For wallet reloads
-  
-  user                  User               @relation(fields: [user_id], references: [id])
-  booking               Booking?           @relation(fields: [booking_id], references: [id])
-  wallet_transaction    WalletTransaction? @relation(fields: [wallet_transaction_id], references: [id])
-  
-  @@map("payments")
-}
-
-model WalletTransaction {
-  id              Int                     @id @default(autoincrement())
-  amount          Int                     // Amount in centavos (positive for add, negative for deduct)
-  transaction_type WalletTransactionType
-  description     String
-  reference_id    String?                 // External reference (booking ID, payment ID, etc.)
-  balance_before  Int                     // Wallet balance before transaction
-  balance_after   Int                     // Wallet balance after transaction
-  created_at      DateTime                @default(now())
-  
-  // Relations
-  user_id         Int
-  user            User                    @relation(fields: [user_id], references: [id])
-  payments        Payment[]
-  
-  @@map("wallet_transactions")
-}
-
-model PaymentMethod {
-  id                Int       @id @default(autoincrement())
-  method_type       String    // "gcash", "bank_transfer"
-  name              String    // "GCash", "BPI", "BDO", etc.
-  account_number    String?   // Phone number for GCash, Account number for banks
-  account_name      String?   // Account holder name
-  qr_code_url       String?   // QR code image URL
-  instructions      String?   // Payment instructions
-  is_active         Boolean   @default(true)
-  created_at        DateTime  @default(now())
-  updated_at        DateTime  @updatedAt
-  
-  @@map("payment_methods")
-}
-
-// ============================================================================
-// ENUMS
-// ============================================================================
-
 enum PaymentStatus {
   unpaid
-  pending         // Payment submitted, waiting for verification
-  paid           // Payment verified and confirmed
-  failed         // Payment failed or rejected
-  refunded       // Payment refunded
+  pending
+  paid
+  failed
+  refunded
 }
 
 enum PaymentMethodType {
-  wallet         // Pay from user wallet
-  gcash          // Manual GCash payment
-  bank_transfer  // Manual bank transfer
-  credit_card    // Future: Credit card integration
-  paypal         // Future: PayPal integration
+  wallet
+  gcash
+  bank_transfer
+  credit_card
+  paypal
 }
 
 enum PaymentType {
-  booking        // Payment for booking
-  wallet_reload  // Wallet top-up
-  refund         // Refund payment
+  booking
+  wallet_reload
+  refund
 }
 
 enum WalletTransactionType {
-  reload         // Adding money to wallet
-  payment        // Paying for booking
-  refund         // Refund to wallet
-  admin_adjustment // Admin adjustment (bonus, correction, etc.)
+  reload
+  payment
+  refund
+  admin_adjustment
 }
 
 enum ConversationType {
-  DIRECT    // 1-on-1 conversation
-  GROUP     // Group conversation
-  SUPPORT   // Customer support conversation
+  DIRECT
+  GROUP
+  SUPPORT
 }
 
 enum ParticipantRole {
@@ -512,83 +514,19 @@ enum MessageType {
   TEXT
   IMAGE
   FILE
-  SYSTEM    // System-generated messages (booking status changes, etc.)
+  SYSTEM
   BOOKING_REQUEST
   BOOKING_UPDATE
 }
 
-// =====================================
-// LEDGER-BASED WALLET SYSTEM
-// =====================================
-
-model WalletAccount {
-  id                 String   @id @default(cuid())
-  user_id            Int?     @unique // null for platform account
-  account_type       AccountType @default(USER)
-  available_cents    Int      @default(0) // cached balance for quick reads
-  pending_cents      Int      @default(0) // holds/uncleared amounts  
-  version            Int      @default(0) // optimistic locking
-  created_at         DateTime @default(now())
-  updated_at         DateTime @updatedAt
-  
-  // Relations
-  user               User?    @relation(fields: [user_id], references: [id])
-  entries_from       LedgerEntry[] @relation("FromAccount")
-  entries_to         LedgerEntry[] @relation("ToAccount")
-  
-  @@map("wallet_accounts")
-}
-
-model LedgerEntry {
-  id                 String   @id @default(cuid())
-  transfer_id        String   // groups the two sides of a transfer
-  from_account_id    String
-  to_account_id      String
-  amount_cents       Int      // positive integer (PHP 1.00 = 100 cents)
-  state              EntryState @default(pending)
-  occurred_at        DateTime @default(now())
-  memo               String?
-  idempotency_key    String   @unique // prevents duplicate transactions
-  reference_type     String?  // 'booking', 'reload', 'refund', etc.
-  reference_id       String?  // booking_id, payment_id, etc.
-  created_at         DateTime @default(now())
-  
-  // Relations
-  from_account       WalletAccount @relation("FromAccount", fields: [from_account_id], references: [id])
-  to_account         WalletAccount @relation("ToAccount", fields: [to_account_id], references: [id])
-  
-  @@map("ledger_entries")
-  @@index([transfer_id])
-  @@index([from_account_id])
-  @@index([to_account_id])
-  @@index([state])
-  @@index([occurred_at])
-}
-
-model WalletSnapshot {
-  id                 String   @id @default(cuid())
-  account_id         String
-  balance_cents      Int      // computed balance at snapshot time
-  pending_cents      Int      // pending balance at snapshot time
-  snapshot_date      DateTime // daily snapshots
-  entry_count        Int      // number of entries included in this snapshot
-  created_at         DateTime @default(now())
-  
-  @@map("wallet_snapshots")
-  @@unique([account_id, snapshot_date])
-  @@index([snapshot_date])
-}
-
 enum AccountType {
-  USER      // Individual user wallet
-  PLATFORM  // Platform account for fees, refunds
-  ESCROW    // Temporary holding account
+  USER
+  PLATFORM
+  ESCROW
 }
 
 enum EntryState {
-  pending   // Authorization/hold created but not settled
-  posted    // Confirmed and settled
-  reversed  // Reversed/refunded (creates new opposing entries)
+  pending
+  posted
+  reversed
 }
-
-

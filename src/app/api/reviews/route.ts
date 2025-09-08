@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth';
 
+export const runtime = 'nodejs';
+
 // POST /api/reviews - Submit a review for a completed booking
 export async function POST(request: NextRequest) {
   return requireAuth(async (_req, user) => {

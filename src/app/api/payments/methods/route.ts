@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const runtime = 'nodejs';
+
 // GET /api/payments/methods - Get available payment methods
 export async function GET(request: NextRequest) {
   try {

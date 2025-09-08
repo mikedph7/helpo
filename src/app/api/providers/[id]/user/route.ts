@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const runtime = 'nodejs';
+
 // GET /api/providers/[id]/user - Get provider's user ID
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {

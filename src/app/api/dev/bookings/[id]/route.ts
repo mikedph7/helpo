@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { WalletService } from "@/lib/wallet-service";
 import { requireAuth } from "@/lib/auth";
 
+export const runtime = 'nodejs';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

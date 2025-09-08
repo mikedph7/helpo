@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticate } from '@/lib/auth';
 
+export const runtime = 'nodejs';
+
 // POST /api/admin/payments/[id]/verify - Admin verifies payment
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
