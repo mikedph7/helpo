@@ -359,9 +359,9 @@ export class HelpoApiClient {
 
 // For server-side components
 export async function createServerApiClient(): Promise<HelpoApiClient> {
-  const { getServerBaseUrl } = await import("./server-base-url");
-  const baseUrl = await getServerBaseUrl();
-  return new HelpoApiClient(baseUrl);
+  // For now, return client API since we've moved to client-side rendering
+  // This prevents build errors when not using server-side features
+  return new HelpoApiClient();
 }
 
 // For client-side components
