@@ -78,7 +78,8 @@ export function middleware(request: NextRequest) {
   }
 
   // Check authentication for protected routes
-  const token = request.cookies.get('auth-token')?.value;
+  const token = request.cookies.get('auth-token')?.value || 
+                request.headers.get('authorization')?.replace('Bearer ', '');
 
   if (!token) {
     // Redirect to appropriate login page based on route
