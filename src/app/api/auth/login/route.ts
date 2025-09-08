@@ -41,15 +41,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate JWT token
+    const tokenPayload = { 
+      userId: user.id, 
+      email: user.email,
+      role: user.role 
+    };
+    
+    console.log('Login: Creating token with payload:', tokenPayload);
+    console.log('Login: JWT_SECRET available:', !!JWT_SECRET);
+    console.log('Login: JWT_SECRET length:', JWT_SECRET.length);
+    
     const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email,
-        role: user.role 
-      },
+      tokenPayload,
       JWT_SECRET,
       { expiresIn: '24h' }
     );
+    
+    console.log('Login: Token created successfully:', !!token);
+    console.log('Login: Token length:', token.length);
 
     // Create session record
     const session = await prisma.session.create({

@@ -13,7 +13,10 @@ export async function GET(request: NextRequest) {
   try {
     // Get token from cookie or Authorization header
     console.log('Auth/me: Token received:', !!token);
+    console.log('Auth/me: Token length:', token ? token.length : 0);
     console.log('Auth/me: JWT_SECRET available:', !!JWT_SECRET);
+    console.log('Auth/me: JWT_SECRET length:', JWT_SECRET.length);
+    console.log('Auth/me: Token starts with:', token ? token.substring(0, 20) + '...' : 'N/A');
 
     if (!token) {
       return NextResponse.json(

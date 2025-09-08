@@ -29,6 +29,7 @@ const PUBLIC_ROUTES = [
   '/api/dbcheck',
   '/api/debug-env',
   '/api/test-jwt',
+  '/api/jwt-test',
   '/api/dev/services',
   '/api/dev/providers',
   '/api/dev/favorites',
