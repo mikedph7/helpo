@@ -19,6 +19,7 @@ const PUBLIC_ROUTES = [
   '/saved',
   '/messages',
   '/bookings',
+  '/profile',
   
   // Public API endpoints
   '/api/auth/login',
@@ -51,10 +52,9 @@ const PROTECTED_API_ROUTES = [
 ];
 
 // Pages that require authentication (not in PUBLIC_ROUTES):
-// - /profile (user profile management)
 // - /provider/* (provider dashboard, except login)
 // - /admin/* (admin dashboard, except login)
-// Note: /bookings is public but shows different content based on auth status
+// Note: /bookings and /profile are public but show different content based on auth status
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
