@@ -24,7 +24,6 @@ const PUBLIC_ROUTES = [
   // Public API endpoints
   '/api/auth/login',
   '/api/auth/register',
-  '/api/auth/me',
   '/api/auth-debug',
   '/api/env-check',
   '/api/dbcheck',

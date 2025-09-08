@@ -37,7 +37,29 @@ export async function GET(request: NextRequest) {
       } catch (error) {
         debug.tokenValid = false;
         debug.tokenError = error instanceof Error ? error.message : 'Unknown error';
+        
+        // Try to decode without verification to see the payload
+        try {
+          const decodedUnsafe = jwt.decode(token) as any;
+          debug.tokenPayloadUnsafe = decodedUnsafe;
+        } catch (decodeError) {
+          debug.tokenDecodeError = decodeError instanceof Error ? decodeError.message : 'Decode failed';
+        }
       }
+    }
+
+    // Also test creating a simple token to see if JWT creation works
+    try {
+      const testToken = jwt.sign({ test: 'data', iat: Math.floor(Date.now() / 1000) }, JWT_SECRET);
+      debug.canCreateToken = true;
+      debug.testTokenLength = testToken.length;
+      
+      // Try to verify the test token immediately
+      const verifiedTest = jwt.verify(testToken, JWT_SECRET) as any;
+      debug.canVerifyOwnToken = true;
+    } catch (error) {
+      debug.canCreateToken = false;
+      debug.tokenCreationError = error instanceof Error ? error.message : 'Token creation failed';
     }
 
     return NextResponse.json({ debug });
