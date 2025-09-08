@@ -13,6 +13,7 @@ const PUBLIC_ROUTES = [
   '/admin/auth/login',
   '/api/auth/login',
   '/api/auth/register',
+  '/api/auth-debug',
 ];
 
 // Define API routes that require authentication
