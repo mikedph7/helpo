@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export const runtime = 'nodejs';
+
+export async function GET() {
   const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
   
   return NextResponse.json({
