@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClientApiClient, type HelpoCategory, type Service } from '@/lib/api-client';
 import ServicesClient from './_components/services-client';
 import { LoadingPage, LoadingGrid } from '@/components/ui/loading';
 
-export default function ServicesPage() {
+function ServicesPageContent() {
   const searchParams = useSearchParams();
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,5 +103,36 @@ export default function ServicesPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function ServicesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 md:px-6 py-6 md:py-8">
+          {/* Hero Section */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+              Find the right help, right away.
+            </h1>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Connect with trusted professionals for home care, repairs, pet services, and learning
+            </p>
+          </div>
+          
+          {/* Loading State */}
+          <LoadingPage 
+            title="Loading Services" 
+            message="Preparing the services page..."
+          />
+          
+          {/* Skeleton Grid */}
+          <LoadingGrid count={8} className="mt-8" />
+        </div>
+      </div>
+    }>
+      <ServicesPageContent />
+    </Suspense>
   );
 }
