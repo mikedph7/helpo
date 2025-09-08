@@ -18,6 +18,19 @@ export async function GET(request: NextRequest) {
     console.log('Auth/me: JWT_SECRET length:', JWT_SECRET.length);
     console.log('Auth/me: Token starts with:', token ? token.substring(0, 20) + '...' : 'N/A');
 
+    // TEMPORARY DEBUG: Return JWT secret info for comparison
+    return NextResponse.json({
+      debug: {
+        hasToken: !!token,
+        tokenLength: token ? token.length : 0,
+        tokenPrefix: token ? token.substring(0, 20) + '...' : 'N/A',
+        hasJwtSecret: !!JWT_SECRET,
+        jwtSecretLength: JWT_SECRET.length,
+        jwtSecretPrefix: JWT_SECRET.substring(0, 10) + '...',
+        environment: process.env.NODE_ENV
+      }
+    });
+
     if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
