@@ -4,14 +4,14 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Create a new instance for each serverless function in production
-// to avoid prepared statement conflicts
+// For production: create fresh instances with disabled prepared statements
+// to avoid conflicts in serverless + connection pooling environment
 export const prisma = process.env.NODE_ENV === 'production' 
   ? new PrismaClient({
       log: ['error'],
       datasources: {
         db: {
-          url: process.env.DATABASE_URL
+          url: process.env.DATABASE_URL + '&prepared_statements=false'
         }
       }
     })
