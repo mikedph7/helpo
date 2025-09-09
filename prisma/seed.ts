@@ -38,66 +38,64 @@ async function main() {
   // Create provider users and providers
   const providerData = [
     {
-      id: 'prov_001',
-      display_name: 'Clean Masters',
+      name: 'Clean Masters',
       bio: 'Professional cleaning services',
-      rating_avg: 4.8,
+      average_rating: 4.8,
       rating_count: 127,
       photo_url: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=150',
-      is_verified: true,
-      address_text: 'Metro Manila'
+      verified: true,
+      location: 'Metro Manila'
     },
     {
-      id: 'prov_002', 
-      display_name: 'Fix It Pro',
+      name: 'Fix It Pro',
       bio: 'Expert repair services',
-      rating_avg: 4.6,
+      average_rating: 4.6,
       rating_count: 89,
       photo_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-      is_verified: true,
-      address_text: 'Quezon City'
+      verified: true,
+      location: 'Quezon City'
     },
     {
-      id: 'prov_003',
-      display_name: 'Pet Care Plus',
+      name: 'Pet Care Plus',
       bio: 'Professional pet care and grooming',
-      rating_avg: 4.9,
+      average_rating: 4.9,
       rating_count: 156,
       photo_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-      is_verified: true,
-      address_text: 'Makati City'
+      verified: true,
+      location: 'Makati City'
     }
   ]
 
-  for (const provider of providerData) {
+  const createdProviders = []
+  for (const providerInfo of providerData) {
     // Create user for provider
     const providerUser = await prisma.user.create({
       data: {
-        id: `user_${provider.id}`,
-        email: `${provider.id}@helpo.com`,
-        full_name: provider.display_name,
-        role: 'provider',
+        email: `${providerInfo.name.toLowerCase().replace(' ', '')}@helpo.com`,
+        name: providerInfo.name,
+        role: 'PROVIDER',
         password_hash: await bcrypt.hash('password123', 10)
       }
     })
 
     // Create provider
-    await prisma.provider.create({
+    const provider = await prisma.provider.create({
       data: {
-        id: provider.id,
         user_id: providerUser.id,
-        display_name: provider.display_name,
-        bio: provider.bio,
-        rating_avg: provider.rating_avg,
-        rating_count: provider.rating_count,
-        photo_url: provider.photo_url,
-        is_verified: provider.is_verified,
-        address_text: provider.address_text
+        name: providerInfo.name,
+        bio: providerInfo.bio,
+        average_rating: providerInfo.average_rating,
+        rating_count: providerInfo.rating_count,
+        photo_url: providerInfo.photo_url,
+        verified: providerInfo.verified,
+        location: providerInfo.location
       }
     })
+
+    createdProviders.push(provider)
   }
 
-  console.log(`✅ Created ${providerData.length} providers`)
+  console.log(`✅ Created ${createdProviders.length} providers`)
 
   // Create services
   const serviceData = [
@@ -254,6 +252,84 @@ async function main() {
   })
 
   console.log('✅ Added sample search logs')
+
+  // Add optimized schedule and time slot seeding
+  console.log('🗓️ Creating provider schedules and time slots...')
+  
+  // Get all created providers
+  const allProviders = await prisma.provider.findMany({
+    select: { id: true, name: true }
+  })
+  
+  // Create schedules for each provider
+  const schedulePromises = allProviders.map(async (provider) => {
+    // Create weekly schedule (Monday to Friday)
+    const weekdaySchedules = []
+    for (let day = 1; day <= 5; day++) { // Monday to Friday
+      weekdaySchedules.push({
+        provider_id: provider.id,
+        day_of_week: day,
+        start_time: '09:00',
+        end_time: '17:00',
+        is_available: true
+      })
+    }
+
+    await prisma.providerSchedule.createMany({
+      data: weekdaySchedules,
+      skipDuplicates: true
+    })
+
+    return weekdaySchedules.length
+  })
+
+  const scheduleResults = await Promise.all(schedulePromises)
+  const totalSchedules = scheduleResults.reduce((sum, count) => sum + count, 0)
+  console.log(`✅ Created ${totalSchedules} schedules for ${allProviders.length} providers`)
+
+  // Generate optimized time slots for next 7 days
+  const timeSlots = []
+  const startDate = new Date()
+  
+  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+    const currentDate = new Date(startDate)
+    currentDate.setDate(startDate.getDate() + dayOffset)
+    
+    // Skip weekends for simplicity
+    if (currentDate.getDay() === 0 || currentDate.getDay() === 6) continue
+    
+    for (const provider of allProviders) {
+      // Generate slots from 9 AM to 5 PM (every 2 hours)
+      for (let hour = 9; hour < 17; hour += 2) {
+        const startHour = hour.toString().padStart(2, '0') + ':00'
+        const endHour = (hour + 2).toString().padStart(2, '0') + ':00'
+        
+        timeSlots.push({
+          provider_id: provider.id,
+          date: currentDate,
+          start_time: startHour,
+          end_time: endHour,
+          is_available: true,
+          is_booked: false
+        })
+      }
+    }
+  }
+
+  // Batch insert time slots in chunks for better performance
+  const chunkSize = 100
+  let slotsCreated = 0
+  
+  for (let i = 0; i < timeSlots.length; i += chunkSize) {
+    const chunk = timeSlots.slice(i, i + chunkSize)
+    await prisma.timeSlot.createMany({
+      data: chunk,
+      skipDuplicates: true
+    })
+    slotsCreated += chunk.length
+  }
+  
+  console.log(`✅ Created ${slotsCreated} time slots`)
 
   console.log('🎉 Database seeding completed successfully!')
 }

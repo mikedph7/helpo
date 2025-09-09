@@ -25,6 +25,8 @@ const PUBLIC_ROUTES = [
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/me',
+  '/api/time-slots',
+  '/api/admin/time-slots',
   '/api/auth-debug',
   '/api/env-check',
   '/api/check-env',
@@ -45,16 +47,6 @@ const PUBLIC_ROUTES = [
   '/favicon.ico',
   '/robots.txt',
   '/sitemap.xml',
-];
-
-// Define API routes that require authentication
-const PROTECTED_API_ROUTES = [
-  '/api/auth/logout',
-  '/api/dev/bookings',
-  '/api/dev/users',
-  '/api/dev/payments',
-  '/api/dev/wallet',
-  '/api/dev/profile',
 ];
 
 // Pages that require authentication (not in PUBLIC_ROUTES):

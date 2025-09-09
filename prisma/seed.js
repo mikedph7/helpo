@@ -248,7 +248,7 @@ async function main() {
   console.log(`✅ Created ${providers.length} specialized providers`)
 
   // Seed schedules and time slots for these providers
-  await seedSchedulesAndTimeSlotsForProviders(providers)
+  // await seedSchedulesAndTimeSlotsForProviders(providers) // SKIPPED TO AVOID LAG
 
     // Create a provider login account and link to first provider
     const providerUser = await prisma.user.create({

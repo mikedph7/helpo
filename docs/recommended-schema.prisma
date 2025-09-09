@@ -1,0 +1,46 @@
+// Recommended production schema
+
+model ProviderSchedule {
+  id              String   @id @default(cuid())
+  provider_id     String
+  day_of_week     Int      // 0-6 (Sunday-Saturday)
+  start_time      String   // "09:00"
+  end_time        String   // "17:00"
+  slot_duration   Int      @default(60) // minutes
+  buffer_time     Int      @default(0)  // minutes between bookings
+  is_available    Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  provider        Provider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
+
+  @@unique([provider_id, day_of_week])
+}
+
+model ScheduleException {
+  id              String    @id @default(cuid())
+  provider_id     String
+  date            DateTime  @db.Date
+  start_time      String?   // Override start time
+  end_time        String?   // Override end time
+  is_available    Boolean   @default(false) // false = day off
+  reason          String?   // "Holiday", "Sick day", etc.
+  created_at      DateTime  @default(now())
+
+  provider        Provider  @relation(fields: [provider_id], references: [id], onDelete: Cascade)
+
+  @@unique([provider_id, date])
+}
+
+model Booking {
+  id              String    @id @default(cuid())
+  provider_id     String
+  service_id      String
+  user_id         String
+  scheduled_at    DateTime  // Exact booking time
+  duration        Int       // minutes
+  status          BookingStatus
+  // ... other fields
+}
+
+// Remove the TimeSlot table entirely!
