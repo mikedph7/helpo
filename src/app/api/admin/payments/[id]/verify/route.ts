@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticate } from '@/lib/auth';
+import { WalletService } from '@/lib/wallet-service';
 
 export const runtime = 'nodejs';
 
@@ -94,6 +95,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           });
 
           return { payment: updatedPayment, booking: updatedBooking };
+        } else if (payment.payment_type === 'wallet_reload') {
+          // Handle wallet reload - add money to user's wallet
+          const walletTransfer = await WalletService.reloadWallet(
+            payment.user_id,
+            payment.amount,
+            `Admin approved wallet reload: ${admin_notes || 'Payment verified'}`,
+            `payment_${payment.id}`
+          );
+
+          return { payment: updatedPayment, walletTransfer };
         }
 
         return { payment: updatedPayment };

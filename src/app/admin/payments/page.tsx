@@ -270,12 +270,17 @@ export default function AdminPaymentsPage() {
                     <div>
                       <p className="text-sm text-gray-600 mb-2">Payment Proof</p>
                       <Image
-                        src={selectedPayment.payment_proof_url}
+                        src={`/api/admin/payment-proof/${selectedPayment.payment_proof_url.split('/').pop()}`}
                         alt="Payment proof"
                         width={300}
                         height={200}
                         className="rounded-lg border cursor-pointer hover:scale-105 transition-transform"
-                        onClick={() => window.open(selectedPayment.payment_proof_url, '_blank')}
+                        onClick={() => {
+                          const filename = selectedPayment.payment_proof_url?.split('/').pop();
+                          if (filename) {
+                            window.open(`/api/admin/payment-proof/${filename}`, '_blank');
+                          }
+                        }}
                       />
                     </div>
                   )}
