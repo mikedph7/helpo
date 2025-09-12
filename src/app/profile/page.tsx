@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import WalletComponent from "@/components/wallet-component";
+import RecentTransactions from "@/components/recent-transactions";
 
 export default function ProfilePage() {
   const { user, logout, isLoading } = useAuth();
@@ -107,13 +108,28 @@ export default function ProfilePage() {
               </Avatar>
               <div className="flex-1">
                 <h2 className="text-xl font-semibold">{user.name || 'User'}</h2>
-                <div className="flex items-center gap-2 text-gray-600 mb-1">
+                <div className="flex items-center gap-2 text-gray-600 mb-2">
                   <Mail className="w-4 h-4" />
                   <span>{user.email}</span>
+                  {user.email_verified ? (
+                    <div className="flex items-center gap-1 text-green-600">
+                      <Shield className="w-3 h-3" />
+                      <span className="text-xs">Verified</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-amber-600">
+                      <Shield className="w-3 h-3" />
+                      <span className="text-xs">Unverified</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-green-600" />
-                  <span className="text-sm text-gray-500 capitalize">{user.role.toLowerCase()} Account</span>
+                  <span className="text-sm text-gray-500">
+                    {user.role === 'ADMIN' ? 'Administrator' : 
+                     user.role === 'PROVIDER' ? 'Service Provider' : 
+                     'Member'} Account
+                  </span>
                 </div>
               </div>
             </div>
@@ -153,6 +169,9 @@ export default function ProfilePage() {
 
         {/* Wallet Section */}
         <WalletComponent userId={user.id} initialBalance={0} />
+
+        {/* Recent Transactions */}
+        <RecentTransactions userId={user.id} />
 
         {/* User Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -194,13 +213,13 @@ export default function ProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <button className="flex items-center justify-between w-full p-3 text-left rounded-lg hover:bg-gray-50 transition-colors">
+            <Link href="/profile/settings" className="flex items-center justify-between w-full p-3 text-left rounded-lg hover:bg-gray-50 transition-colors">
               <div className="flex items-center gap-3">
                 <UserIcon className="w-4 h-4 text-gray-500" />
                 <span>Edit Profile</span>
               </div>
               <span className="text-gray-400">→</span>
-            </button>
+            </Link>
             
             <button className="flex items-center justify-between w-full p-3 text-left rounded-lg hover:bg-gray-50 transition-colors">
               <div className="flex items-center gap-3">
